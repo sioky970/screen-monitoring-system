@@ -75,70 +75,13 @@ services:
       timeout: 20s
       retries: 3
 
-  # Nginx 反向代理（可选）
-  nginx:
-    image: nginx:alpine
-    container_name: screen-monitor-nginx
-    restart: unless-stopped
-    ports:
-      - "${NGINX_HTTP_PORT:-80}:80"
-      - "${NGINX_HTTPS_PORT:-443}:443"
-    volumes:
-      - ./deployment/docker/nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./deployment/docker/nginx/conf.d:/etc/nginx/conf.d
-      - nginx_logs:/var/log/nginx
-    depends_on:
-      - backend
-      - frontend
-    networks:
-      - screen-monitor-network
-
-  # 后端服务（开发完成后取消注释）
-  # backend:
-  #   build:
-  #     context: ./backend
-  #     dockerfile: Dockerfile
-  #   container_name: screen-monitor-backend
-  #   restart: unless-stopped
-  #   environment:
-  #     NODE_ENV: ${NODE_ENV:-development}
-  #     DATABASE_URL: mysql://${MYSQL_USER:-monitor_user}:${MYSQL_PASSWORD:-monitorPass123}@mysql:3306/${MYSQL_DATABASE:-screen_monitoring}
-  #     REDIS_URL: redis://redis:6379
-  #     MINIO_ENDPOINT: http://minio:9000
-  #     MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-  #     MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
-  #     JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key}
-  #   ports:
-  #     - "${BACKEND_PORT:-3001}:3001"
-  #   volumes:
-  #     - ./backend:/app
-  #     - /app/node_modules
-  #   depends_on:
-  #     - mysql
-  #     - redis
-  #     - minio
-  #   networks:
-  #     - screen-monitor-network
-
-  # 前端服务（开发完成后取消注释）
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   container_name: screen-monitor-frontend
-  #   restart: unless-stopped
-  #   environment:
-  #     VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3001/api}
-  #     VITE_WS_BASE_URL: ${VITE_WS_BASE_URL:-ws://localhost:3001}
-  #   ports:
-  #     - "${FRONTEND_PORT:-3000}:3000"
-  #   volumes:
-  #     - ./frontend:/app
-  #     - /app/node_modules
-  #   depends_on:
-  #     - backend
-  #   networks:
-  #     - screen-monitor-network
+  # 注意：前后端应用服务已移至独立的 compose 文件
+  # 基础设施服务（MySQL + Redis + MinIO）在此文件中
+  # 应用服务（Backend + Frontend）在 docker-compose.app.yml 中
+  # 
+  # 使用方法：
+  # 基础设施：docker-compose up -d
+  # 完整应用：docker-compose -f docker-compose.yml -f docker-compose.app.yml up -d
 
 # 数据卷
 volumes:
@@ -147,8 +90,6 @@ volumes:
   redis_data:
     driver: local
   minio_data:
-    driver: local
-  nginx_logs:
     driver: local
 
 # 网络

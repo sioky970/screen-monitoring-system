@@ -1,0 +1,88 @@
+version: '3.8'
+
+# 应用开发环境配置 - 支持热重载
+# 使用方法：docker-compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.app.dev.yml up
+
+services:
+  # 后端开发服务
+  backend-dev:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: screen-monitor-backend-dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: mysql://dev_user:dev_pass_123@mysql:3306/screen_monitoring_dev
+      REDIS_URL: redis://redis:6379
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: devadmin
+      MINIO_SECRET_KEY: devadmin123
+      MINIO_BUCKET: monitoring-screenshots
+      JWT_SECRET: dev-jwt-secret-key
+      # 开发环境 CORS 配置
+      CORS_ORIGIN: http://localhost:38000
+      # 调试端口
+      DEBUG_PORT: 9229
+    ports:
+      - "38001:3001"  # API端口
+      - "39229:9229"  # 调试端口
+    volumes:
+      # 代码热重载
+      - ./backend:/app
+      - backend_node_modules:/app/node_modules
+      - ./backend/logs:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - screen-monitor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # 前端开发服务
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: screen-monitor-frontend-dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      # 开发模式下的 API 配置
+      VITE_API_BASE_URL: http://localhost:38001/api
+      VITE_WS_BASE_URL: ws://localhost:38001
+      # 开发服务器配置
+      VITE_HOST: 0.0.0.0
+      VITE_PORT: 3000
+    ports:
+      - "38000:3000"
+    volumes:
+      # 代码热重载
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      - backend-dev
+    networks:
+      - screen-monitor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+# 开发环境专用数据卷
+volumes:
+  backend_node_modules:
+    driver: local
+  frontend_node_modules:
+    driver: local
