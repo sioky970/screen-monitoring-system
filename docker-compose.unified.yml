@@ -1,0 +1,306 @@
+version: '3.8'
+
+# 统一Docker Compose配置文件
+# 通过环境变量控制服务启动和配置
+#
+# 使用方法：
+# 开发环境完整: COMPOSE_PROFILES=dev docker-compose -f docker-compose.unified.yml up
+# 生产环境完整: COMPOSE_PROFILES=prod docker-compose -f docker-compose.unified.yml up  
+# 仅基础设施: COMPOSE_PROFILES=infra docker-compose -f docker-compose.unified.yml up
+# 开发+工具: COMPOSE_PROFILES=dev,tools docker-compose -f docker-compose.unified.yml up
+
+services:
+  # ===================
+  # 基础设施服务
+  # ===================
+  
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: screen-monitor-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-dev_root_123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-screen_monitoring_dev}
+      MYSQL_USER: ${MYSQL_USER:-dev_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-dev_pass_123}
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+    ports:
+      - "${MYSQL_PORT:-33066}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./deployment/docker/mysql/init:/docker-entrypoint-initdb.d
+      - ./deployment/docker/mysql/conf:/etc/mysql/conf.d
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --sql_mode=STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO
+    networks:
+      - screen-monitor-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-dev_root_123}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    profiles:
+      - infra
+      - dev
+      - prod
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: screen-monitor-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-36379}:6379"
+    volumes:
+      - redis_data:/data
+      - ./deployment/docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf --appendonly yes
+    networks:
+      - screen-monitor-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    profiles:
+      - infra
+      - dev
+      - prod
+
+  # MinIO 对象存储
+  minio:
+    image: minio/minio:latest
+    container_name: screen-monitor-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-devadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-devadmin123}
+      MINIO_DEFAULT_BUCKETS: ${MINIO_DEFAULT_BUCKETS:-monitoring-screenshots}
+    ports:
+      - "${MINIO_API_PORT:-39000}:9000"
+      - "${MINIO_CONSOLE_PORT:-39090}:9090"
+    volumes:
+      - minio_data:/data
+      - ./deployment/docker/minio/init:/docker-entrypoint-initdb.d
+    command: server /data --console-address ":9090"
+    networks:
+      - screen-monitor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    profiles:
+      - infra
+      - dev
+      - prod
+
+  # ===================
+  # 开发工具服务
+  # ===================
+
+  # 数据库管理工具
+  adminer:
+    image: adminer:latest
+    container_name: screen-monitor-adminer
+    restart: unless-stopped
+    ports:
+      - "${ADMINER_PORT:-38080}:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - screen-monitor-network
+    profiles:
+      - tools
+      - dev
+
+  # Redis GUI工具  
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: screen-monitor-redis-gui
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "${REDIS_GUI_PORT:-38081}:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - screen-monitor-network
+    profiles:
+      - tools
+      - dev
+
+  # ===================
+  # 应用服务 - 开发模式
+  # ===================
+
+  # 后端开发服务
+  backend-dev:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: screen-monitor-backend-dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: mysql://${MYSQL_USER:-dev_user}:${MYSQL_PASSWORD:-dev_pass_123}@mysql:3306/${MYSQL_DATABASE:-screen_monitoring_dev}
+      REDIS_URL: redis://redis:6379
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-devadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-devadmin123}
+      MINIO_BUCKET: ${MINIO_DEFAULT_BUCKETS:-monitoring-screenshots}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-key}
+      CORS_ORIGIN: http://localhost:${FRONTEND_DEV_PORT:-38000}
+      DEBUG_PORT: 9229
+    ports:
+      - "${BACKEND_DEV_PORT:-38001}:3001"
+      - "${DEBUG_PORT:-39229}:9229"
+    volumes:
+      - ./backend:/app
+      - backend_node_modules:/app/node_modules
+      - ./backend/logs:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - screen-monitor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    profiles:
+      - dev
+
+  # 前端开发服务
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: screen-monitor-frontend-dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      VITE_API_BASE_URL: http://localhost:${BACKEND_DEV_PORT:-38001}/api
+      VITE_WS_BASE_URL: ws://localhost:${BACKEND_DEV_PORT:-38001}
+      VITE_HOST: 0.0.0.0
+      VITE_PORT: 3000
+    ports:
+      - "${FRONTEND_DEV_PORT:-38000}:3000"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      backend-dev:
+        condition: service_healthy
+    networks:
+      - screen-monitor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    profiles:
+      - dev
+
+  # ===================
+  # 应用服务 - 生产模式
+  # ===================
+
+  # 后端生产服务
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: screen-monitor-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: mysql://${MYSQL_USER:-monitor_user}:${MYSQL_PASSWORD:-monitorPass123}@mysql:3306/${MYSQL_DATABASE:-screen_monitoring}
+      REDIS_URL: redis://redis:6379
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: ${MINIO_DEFAULT_BUCKETS:-monitoring-screenshots}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key}
+      CORS_ORIGIN: http://localhost:${FRONTEND_PORT:-8080}
+    ports:
+      - "${BACKEND_PORT:-3001}:3001"
+    volumes:
+      - ./backend/logs:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - screen-monitor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    profiles:
+      - prod
+
+  # 前端生产服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: screen-monitor-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - screen-monitor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    profiles:
+      - prod
+
+# 数据卷
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+  backend_node_modules:
+    driver: local
+  frontend_node_modules:
+    driver: local
+
+# 网络
+networks:
+  screen-monitor-network:
+    driver: bridge

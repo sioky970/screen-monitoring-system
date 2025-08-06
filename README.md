@@ -76,13 +76,24 @@ screen-monitoring-system/
    cd screen-monitoring-system
    ```
 
-2. **配置环境变量**
+2. **一键启动（推荐）**
    ```bash
-   cp .env.example .env
-   # 根据需要修改 .env 文件中的配置
+   # 开发环境完整版（包含应用 + 开发工具）
+   ./start-unified.sh dev
+   
+   # 生产环境完整版
+   ./start-unified.sh prod
+   
+   # 仅基础设施（MySQL + Redis + MinIO）
+   ./start-unified.sh infra
+   
+   # 开发工具（基础设施 + Adminer + Redis Commander）
+   ./start-unified.sh tools
    ```
 
-3. **部署模式选择**
+3. **高级部署选项**
+
+   如果你需要更细粒度的控制，可以使用原始的分离式配置：
 
    #### 开发环境部署
    
@@ -116,16 +127,14 @@ screen-monitoring-system/
 
 ### 访问系统
 
-#### 开发环境
-**基础设施服务**（`dev infra` 或 `dev all` 模式）
-- 数据库管理（Adminer）：http://localhost:38080
-- Redis管理：http://localhost:38081  
-- MinIO控制台：http://localhost:39090
-
-**应用服务**（`dev app` 或 `dev all` 模式）
-- 前端应用：http://localhost:38000
-- 后端API：http://localhost:38001/api
-- 后端调试端口：localhost:39229
+#### 开发环境（`./start-unified.sh dev`）
+**完整开发环境访问地址**
+- 🌐 前端应用：http://localhost:38000
+- 🔌 后端API：http://localhost:38001/api  
+- 🐛 后端调试：http://localhost:39229
+- 📊 数据库管理：http://localhost:38080
+- 🔧 Redis管理：http://localhost:38081
+- 💾 MinIO控制台：http://localhost:39090
 
 **数据库连接信息**
 - Host: localhost:33066
@@ -133,16 +142,42 @@ screen-monitoring-system/
 - Username: dev_user
 - Password: dev_pass_123
 
-#### 生产环境
-**完整应用**（`prod app` 模式）
-- 应用主页：http://localhost:8080
-- API接口：http://localhost:3001/api
-- MinIO控制台：http://localhost:9090
+#### 生产环境（`./start-unified.sh prod`）
+**生产环境访问地址**
+- 🌐 应用主页：http://localhost:8080
+- 🔌 API接口：http://localhost:3001/api
+- 💾 MinIO控制台：http://localhost:9090
 
-**仅基础设施**（`prod infra` 模式）  
-- MinIO控制台：http://localhost:9090
+#### 基础设施模式（`./start-unified.sh infra`）
+**基础设施服务**
+- 🗄️ MySQL数据库：localhost:33066
+- 🔄 Redis缓存：localhost:36379
+- 💾 MinIO存储：http://localhost:39000
+- 💾 MinIO控制台：http://localhost:39090
+
+#### 开发工具模式（`./start-unified.sh tools`）
+**开发工具访问**
+- 📊 数据库管理：http://localhost:38080
+- 🔧 Redis管理：http://localhost:38081
+- 💾 MinIO控制台：http://localhost:39090
 
 ## Docker架构设计
+
+### 统一配置架构
+
+本系统现在提供了**统一的Docker Compose配置**（`docker-compose.unified.yml`），通过 **Profiles** 机制实现一键部署：
+
+```bash
+# 一键启动，自动配置所有服务
+./start-unified.sh [dev|prod|infra|tools]
+```
+
+#### 架构优势
+
+- **🎯 一键部署**：单个配置文件，多种部署模式
+- **⚙️ 智能配置**：基于环境自动切换端口和配置
+- **🔄 零配置**：无需手动管理多个compose文件
+- **📋 Profile控制**：通过COMPOSE_PROFILES精确控制服务启动
 
 ### 部署模式说明
 
@@ -159,11 +194,12 @@ screen-monitoring-system/
 
 #### 部署组合方式
 
-| 模式 | 基础设施 | 应用服务 | 管理工具 | 适用场景 |
-|------|----------|----------|----------|----------|
-| `infra` | ✅ | ❌ | ❌ | 本地开发、自定义应用部署 |
-| `app` | ✅ | ✅ | ❌ | 生产环境、容器化开发 |
-| `all` | ✅ | ✅ | ✅ | 开发环境（包含Adminer等） |
+| 启动命令 | Profile | 基础设施 | 应用服务 | 开发工具 | 适用场景 |
+|----------|---------|----------|----------|----------|----------|
+| `./start-unified.sh dev` | `dev` | ✅ | ✅ | ✅ | 完整开发环境 |
+| `./start-unified.sh prod` | `prod` | ✅ | ✅ | ❌ | 生产环境 |
+| `./start-unified.sh infra` | `infra` | ✅ | ❌ | ❌ | 仅基础设施 |
+| `./start-unified.sh tools` | `infra,tools` | ✅ | ❌ | ✅ | 基础设施+工具 |
 
 ### 核心优势
 
@@ -171,6 +207,7 @@ screen-monitoring-system/
 - **🚀 开发友好**：支持代码热重载，提升开发效率  
 - **📦 生产就绪**：多阶段构建，镜像体积小，安全性高
 - **🔧 灵活部署**：基础设施和应用服务可独立扩缩容
+- **⚡ 一键启动**：统一配置文件，简化部署流程
 
 ## 主要特性
 
