@@ -31,6 +31,7 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./deployment/docker/mysql/init:/docker-entrypoint-initdb.d
+      - ./deployment/docker/mysql/dev-init:/docker-entrypoint-initdb.d/dev
       - ./deployment/docker/mysql/conf:/etc/mysql/conf.d
     command: >
       --default-authentication-plugin=mysql_native_password

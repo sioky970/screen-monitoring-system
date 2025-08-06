@@ -102,7 +102,13 @@ screen-monitoring-system/
    ./deployment/scripts/start.sh prod app     # -> ./start-unified.sh prod
    ```
 
-4. **客户端开发**
+4. **数据库状态检查**
+   ```bash
+   # 检查MySQL数据库是否正确初始化
+   ./check-database.sh
+   ```
+
+5. **客户端开发**
    ```bash
    cd client && dotnet build && dotnet run
    ```
@@ -123,6 +129,15 @@ screen-monitoring-system/
 - Database: screen_monitoring_dev  
 - Username: dev_user
 - Password: dev_pass_123
+
+**数据库结构**：自动创建7个核心表 + 视图 + 存储过程
+- `client_groups` - 客户端分组管理
+- `clients` - 客户端信息和状态
+- `security_screenshots` - 安全告警截图记录  
+- `blockchain_whitelist` - 区块链地址白名单
+- `system_users` - 系统用户和权限
+- `system_logs` - 操作日志审计
+- `client_online_logs` - 在线时长统计
 
 #### 生产环境（`./start-unified.sh prod`）
 **生产环境访问地址**
