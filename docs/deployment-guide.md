@@ -30,31 +30,36 @@ graph TB
 
 ### Docker Compose 文件说明
 
-| 文件 | 用途 | 包含服务 |
-|------|------|----------|
-| `docker-compose.yml` | 基础设施服务 | MySQL + Redis + MinIO |
-| `docker-compose.dev.yml` | 开发环境配置 | 端口映射 + 管理工具 |
-| `docker-compose.app.yml` | 生产应用服务 | Backend + Frontend |
-| `docker-compose.app.dev.yml` | 开发应用服务 | Backend-dev + Frontend-dev |
+本项目已统一为单一配置文件：
+
+| 文件 | 用途 | 特性 |
+|------|------|------|
+| `docker-compose.unified.yml` | 统一配置文件 | 通过Profile控制所有服务 |
+| `start-unified.sh` | 智能启动脚本 | 自动处理环境和服务配置 |
 
 ## 部署模式详解
 
 ### 1. 开发环境部署
 
-#### 模式一：基础设施 + 本地开发
+#### 完整开发环境（推荐）
+```bash
+# 启动完整开发环境（应用+工具）
+./start-unified.sh dev
+```
+
+**包含服务**：基础设施 + 开发版应用 + 开发工具
+**适用场景**：完整的开发体验，支持热重载和调试
+
+#### 仅基础设施 + 本地开发
 ```bash
 # 启动基础设施
-./deployment/scripts/start.sh dev infra
+./start-unified.sh infra
 
 # 本地运行后端（支持调试）
-cd backend
-npm install
-npm run start:dev
+cd backend && npm install && npm run start:dev
 
 # 本地运行前端（支持热重载）  
-cd frontend
-npm install
-npm run dev
+cd frontend && npm install && npm run dev
 ```
 
 **适用场景**：
@@ -62,44 +67,20 @@ npm run dev
 - 代码修改频繁
 - 需要断点调试
 
-**端口映射**：
-- MySQL: localhost:33066
-- Redis: localhost:36379  
-- MinIO API: localhost:39000
-- MinIO Console: localhost:39090
-- Adminer: localhost:38080
-- Redis Commander: localhost:38081
-
-#### 模式二：容器化应用开发
+#### 开发工具模式
 ```bash
-# 启动应用服务（包含基础设施）
-./deployment/scripts/start.sh dev app
+# 启动基础设施 + 开发工具
+./start-unified.sh tools
 ```
 
-**适用场景**：
-- 接近生产环境的开发
-- 多人协作开发
-- 集成测试
-
-**端口映射**：
-- 前端应用: localhost:38000
-- 后端API: localhost:38001
-- 后端调试: localhost:39229
-
-#### 模式三：完整开发环境
-```bash
-# 启动全部服务
-./deployment/scripts/start.sh dev all
-```
-
-**包含所有基础设施、应用服务和管理工具**
+**适用场景**：数据库管理、调试和维护
 
 ### 2. 生产环境部署
 
 #### 标准生产部署
 ```bash
 # 一键部署完整生产环境
-./deployment/scripts/start.sh prod app
+./start-unified.sh prod
 ```
 
 **特性**：
@@ -250,16 +231,16 @@ healthcheck:
 ### 调试命令
 ```bash
 # 查看所有服务状态
-docker-compose ps
+docker-compose -f docker-compose.unified.yml ps
 
 # 查看特定服务日志
-docker-compose logs -f backend
+docker-compose -f docker-compose.unified.yml logs -f backend
 
 # 进入容器调试
-docker-compose exec backend sh
+docker-compose -f docker-compose.unified.yml exec backend sh
 
 # 重启特定服务
-docker-compose restart mysql
+docker-compose -f docker-compose.unified.yml restart mysql
 
 # 查看网络配置
 docker network inspect screen-monitor-network

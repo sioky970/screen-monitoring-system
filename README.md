@@ -91,33 +91,15 @@ screen-monitoring-system/
    ./start-unified.sh tools
    ```
 
-3. **高级部署选项**
+3. **向后兼容的启动方式**
 
-   如果你需要更细粒度的控制，可以使用原始的分离式配置：
+   为了向后兼容，旧的启动脚本仍然可用（会自动重定向到统一脚本）：
 
-   #### 开发环境部署
-   
    ```bash
-   # 方式1: 仅启动基础设施 + 本地开发
-   ./deployment/scripts/start.sh dev infra
-   # 然后本地运行: cd backend && npm run start:dev
-   # 然后本地运行: cd frontend && npm run dev
-   
-   # 方式2: Docker化应用开发（支持热重载）
-   ./deployment/scripts/start.sh dev app
-   
-   # 方式3: 启动全部服务（包含管理工具）
-   ./deployment/scripts/start.sh dev all
-   ```
-   
-   #### 生产环境部署
-   
-   ```bash
-   # 完整生产环境（前后端直接对接，无需反向代理）
-   ./deployment/scripts/start.sh prod app
-   
-   # 仅基础设施（如需自定义应用部署）
-   ./deployment/scripts/start.sh prod infra
+   # 以下命令会自动重定向到统一启动脚本
+   ./deployment/scripts/start.sh dev infra    # -> ./start-unified.sh infra
+   ./deployment/scripts/start.sh dev app      # -> ./start-unified.sh dev
+   ./deployment/scripts/start.sh prod app     # -> ./start-unified.sh prod
    ```
 
 4. **客户端开发**
