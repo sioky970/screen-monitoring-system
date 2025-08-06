@@ -77,6 +77,14 @@ screen-monitoring-system/
    ```
 
 2. **一键启动（推荐）**
+
+   #### 🚀 超快速启动（预构建数据库）
+   ```bash
+   # 自动构建MySQL镜像并启动完整开发环境
+   ./quick-setup.sh
+   ```
+
+   #### 标准启动方式  
    ```bash
    # 开发环境完整版（包含应用 + 开发工具）
    ./start-unified.sh dev
@@ -89,6 +97,12 @@ screen-monitoring-system/
    
    # 开发工具（基础设施 + Adminer + Redis Commander）
    ./start-unified.sh tools
+   ```
+
+   #### 手动构建预构建MySQL镜像
+   ```bash
+   # 构建包含完整数据库结构的MySQL镜像
+   ./build-mysql-image.sh
    ```
 
 3. **向后兼容的启动方式**
@@ -169,12 +183,27 @@ screen-monitoring-system/
 ./start-unified.sh [dev|prod|infra|tools]
 ```
 
+#### 预构建MySQL镜像
+
+系统支持两种MySQL部署方式：
+
+1. **预构建镜像**（推荐）：`screen-monitor-mysql:1.0.0`
+   - ✅ **零初始化时间**：启动即可用，无需等待SQL脚本执行
+   - ✅ **完整数据结构**：7个核心表 + 视图 + 存储过程 + 示例数据
+   - ✅ **一致性保证**：所有环境使用相同的数据库结构
+   - ✅ **快速启动**：跳过传统的数据库初始化过程
+
+2. **官方镜像**（回退方案）：`mysql:8.0`
+   - 🔄 使用初始化脚本动态创建表结构
+   - ⏱️ 首次启动需要等待SQL脚本执行
+
 #### 架构优势
 
 - **🎯 一键部署**：单个配置文件，多种部署模式
 - **⚙️ 智能配置**：基于环境自动切换端口和配置
 - **🔄 零配置**：无需手动管理多个compose文件
 - **📋 Profile控制**：通过COMPOSE_PROFILES精确控制服务启动
+- **🚀 预构建数据库**：启动即可用，无需初始化等待
 
 ### 部署模式说明
 

@@ -87,9 +87,32 @@ fi
 print_info "创建Docker网络..."
 docker network create screen-monitor-network 2>/dev/null || true
 
-# 拉取镜像
+# 检查并构建自定义MySQL镜像
+CUSTOM_IMAGE_NAME="screen-monitor-mysql:1.0.0"
+if ! docker images "$CUSTOM_IMAGE_NAME" --format "{{.Repository}}:{{.Tag}}" | grep -q "^$CUSTOM_IMAGE_NAME$"; then
+    print_warning "未找到自定义MySQL镜像: $CUSTOM_IMAGE_NAME"
+    read -p "是否现在构建自定义MySQL镜像? (推荐) (y/N): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        print_info "构建自定义MySQL镜像..."
+        if ./build-mysql-image.sh; then
+            print_success "MySQL镜像构建成功"
+        else
+            print_warning "MySQL镜像构建失败，将使用官方镜像"
+            # 回退到官方镜像
+            export MYSQL_CUSTOM_IMAGE="mysql:8.0"
+        fi
+    else
+        print_info "跳过自定义镜像构建，使用官方镜像"
+        export MYSQL_CUSTOM_IMAGE="mysql:8.0"
+    fi
+else
+    print_success "找到自定义MySQL镜像: $CUSTOM_IMAGE_NAME"
+fi
+
+# 拉取其他镜像
 print_info "拉取Docker镜像..."
-docker-compose -f docker-compose.unified.yml pull
+docker-compose -f docker-compose.unified.yml pull --ignore-pull-failures || print_warning "部分镜像拉取失败，继续启动..."
 
 # 启动服务
 print_info "启动服务容器..."

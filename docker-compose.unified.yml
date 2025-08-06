@@ -14,12 +14,14 @@ services:
   # 基础设施服务
   # ===================
   
-  # MySQL 数据库
+  # MySQL 数据库 - 使用预构建镜像
   mysql:
-    image: mysql:8.0
+    # 使用自定义镜像（包含完整数据库结构）或官方镜像
+    image: ${MYSQL_CUSTOM_IMAGE:-screen-monitor-mysql:1.0.0}
     container_name: screen-monitor-mysql
     restart: unless-stopped
     environment:
+      # 预构建镜像已包含这些设置，这里用于覆盖
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-dev_root_123}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-screen_monitoring_dev}
       MYSQL_USER: ${MYSQL_USER:-dev_user}
@@ -30,9 +32,10 @@ services:
       - "${MYSQL_PORT:-33066}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./deployment/docker/mysql/init:/docker-entrypoint-initdb.d
-      - ./deployment/docker/mysql/dev-init:/docker-entrypoint-initdb.d/dev
-      - ./deployment/docker/mysql/conf:/etc/mysql/conf.d
+      # 如果使用官方镜像的回退方案
+      - ./deployment/docker/mysql/init:/docker-entrypoint-initdb.d:ro
+      - ./deployment/docker/mysql/dev-init:/docker-entrypoint-initdb.d/dev:ro
+      - ./deployment/docker/mysql/conf:/etc/mysql/conf.d:ro
     command: >
       --default-authentication-plugin=mysql_native_password
       --character-set-server=utf8mb4
