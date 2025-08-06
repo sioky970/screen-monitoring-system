@@ -1,0 +1,57 @@
+version: '3.8'
+
+# 开发环境专用配置
+# 使用方式：docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  mysql:
+    environment:
+      MYSQL_ROOT_PASSWORD: dev_root_123
+      MYSQL_DATABASE: screen_monitoring_dev
+      MYSQL_USER: dev_user
+      MYSQL_PASSWORD: dev_pass_123
+    ports:
+      - "13306:3306"  # 避免与本地MySQL冲突
+    volumes:
+      - ./deployment/docker/mysql/dev-init:/docker-entrypoint-initdb.d
+
+  redis:
+    ports:
+      - "16379:6379"  # 避免与本地Redis冲突
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+  minio:
+    environment:
+      MINIO_ROOT_USER: devadmin
+      MINIO_ROOT_PASSWORD: devadmin123
+    ports:
+      - "19000:9000"   # API端口
+      - "19090:9090"   # 控制台端口
+
+  # 开发工具容器
+  adminer:
+    image: adminer:latest
+    container_name: screen-monitor-adminer
+    restart: unless-stopped
+    ports:
+      - "18080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
+    depends_on:
+      - mysql
+    networks:
+      - screen-monitor-network
+
+  # Redis GUI工具
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: screen-monitor-redis-gui
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "18081:8081"
+    depends_on:
+      - redis
+    networks:
+      - screen-monitor-network

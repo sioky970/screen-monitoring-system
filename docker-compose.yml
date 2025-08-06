@@ -1,0 +1,157 @@
+version: '3.8'
+
+services:
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: screen-monitor-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootPassword123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-screen_monitoring}
+      MYSQL_USER: ${MYSQL_USER:-monitor_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-monitorPass123}
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./deployment/docker/mysql/init:/docker-entrypoint-initdb.d
+      - ./deployment/docker/mysql/conf:/etc/mysql/conf.d
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --sql_mode=STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO
+    networks:
+      - screen-monitor-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootPassword123}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: screen-monitor-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+      - ./deployment/docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - screen-monitor-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # MinIO 对象存储
+  minio:
+    image: minio/minio:latest
+    container_name: screen-monitor-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_DEFAULT_BUCKETS: ${MINIO_DEFAULT_BUCKETS:-monitoring-screenshots}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9090}:9090"
+    volumes:
+      - minio_data:/data
+      - ./deployment/docker/minio/init:/docker-entrypoint-initdb.d
+    command: server /data --console-address ":9090"
+    networks:
+      - screen-monitor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Nginx 反向代理（可选）
+  nginx:
+    image: nginx:alpine
+    container_name: screen-monitor-nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./deployment/docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./deployment/docker/nginx/conf.d:/etc/nginx/conf.d
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - screen-monitor-network
+
+  # 后端服务（开发完成后取消注释）
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: screen-monitor-backend
+  #   restart: unless-stopped
+  #   environment:
+  #     NODE_ENV: ${NODE_ENV:-development}
+  #     DATABASE_URL: mysql://${MYSQL_USER:-monitor_user}:${MYSQL_PASSWORD:-monitorPass123}@mysql:3306/${MYSQL_DATABASE:-screen_monitoring}
+  #     REDIS_URL: redis://redis:6379
+  #     MINIO_ENDPOINT: http://minio:9000
+  #     MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+  #     MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+  #     JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key}
+  #   ports:
+  #     - "${BACKEND_PORT:-3001}:3001"
+  #   volumes:
+  #     - ./backend:/app
+  #     - /app/node_modules
+  #   depends_on:
+  #     - mysql
+  #     - redis
+  #     - minio
+  #   networks:
+  #     - screen-monitor-network
+
+  # 前端服务（开发完成后取消注释）
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   container_name: screen-monitor-frontend
+  #   restart: unless-stopped
+  #   environment:
+  #     VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3001/api}
+  #     VITE_WS_BASE_URL: ${VITE_WS_BASE_URL:-ws://localhost:3001}
+  #   ports:
+  #     - "${FRONTEND_PORT:-3000}:3000"
+  #   volumes:
+  #     - ./frontend:/app
+  #     - /app/node_modules
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - screen-monitor-network
+
+# 数据卷
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+  nginx_logs:
+    driver: local
+
+# 网络
+networks:
+  screen-monitor-network:
+    driver: bridge

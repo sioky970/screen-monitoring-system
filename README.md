@@ -68,7 +68,7 @@ screen-monitoring-system/
 - Redis 7.0+
 - MinIO
 
-### 本地开发部署
+### 快速部署（Docker方式）
 
 1. **克隆项目**
    ```bash
@@ -76,32 +76,50 @@ screen-monitoring-system/
    cd screen-monitoring-system
    ```
 
-2. **启动后端服务**
+2. **配置环境变量**
    ```bash
-   cd backend
-   docker-compose up -d
-   npm install
-   npm run start:dev
+   cp .env.example .env
+   # 根据需要修改 .env 文件中的配置
    ```
 
-3. **启动前端应用**
+3. **启动开发环境**
    ```bash
-   cd frontend
-   npm install
-   npm run dev
+   # 启动所有依赖服务（MySQL + Redis + MinIO + 管理工具）
+   ./deployment/scripts/start.sh dev
    ```
 
-4. **编译客户端**
+4. **开发应用服务**
    ```bash
-   cd client
-   dotnet build
-   dotnet run
+   # 后端开发
+   cd backend && npm install && npm run start:dev
+   
+   # 前端开发  
+   cd frontend && npm install && npm run dev
+   
+   # 客户端开发
+   cd client && dotnet build && dotnet run
    ```
+
+### 生产部署
+
+```bash
+# 生产环境一键启动
+./deployment/scripts/start.sh prod
+```
 
 ### 访问系统
-- 管理后台：http://localhost:3000
-- API文档：http://localhost:3001/api/docs
+
+#### 开发环境
+- 数据库管理：http://localhost:18080
+- Redis管理：http://localhost:18081
+- MinIO控制台：http://localhost:19090
+- 后端API：http://localhost:3001（开发时）
+- 前端应用：http://localhost:3000（开发时）
+
+#### 生产环境
+- 应用主页：http://localhost
 - MinIO控制台：http://localhost:9090
+- API文档：http://localhost/api/docs
 
 ## 主要特性
 
