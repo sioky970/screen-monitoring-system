@@ -90,10 +90,10 @@ screen-monitoring-system/
 
 4. **开发应用服务**
    ```bash
-   # 后端开发
+   # 后端开发（端口: 38001）
    cd backend && npm install && npm run start:dev
    
-   # 前端开发  
+   # 前端开发（端口: 38000）
    cd frontend && npm install && npm run dev
    
    # 客户端开发
@@ -110,11 +110,11 @@ screen-monitoring-system/
 ### 访问系统
 
 #### 开发环境
-- 数据库管理：http://localhost:18080
-- Redis管理：http://localhost:18081
-- MinIO控制台：http://localhost:19090
-- 后端API：http://localhost:3001（开发时）
-- 前端应用：http://localhost:3000（开发时）
+- 数据库管理：http://localhost:38080
+- Redis管理：http://localhost:38081
+- MinIO控制台：http://localhost:39090
+- 后端API：http://localhost:38001（开发时）
+- 前端应用：http://localhost:38000（开发时）
 
 #### 生产环境
 - 应用主页：http://localhost

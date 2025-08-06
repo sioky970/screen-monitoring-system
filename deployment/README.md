@@ -48,12 +48,14 @@ deployment/
 ### 3. 访问服务
 
 #### 开发环境
-- **数据库管理 (Adminer)**：http://localhost:18080
-- **Redis管理工具**：http://localhost:18081  
-- **MinIO控制台**：http://localhost:19090
-- **MySQL端口**：localhost:13306
-- **Redis端口**：localhost:16379
-- **MinIO API**：localhost:19000
+- **数据库管理 (Adminer)**：http://localhost:38080
+- **Redis管理工具**：http://localhost:38081  
+- **MinIO控制台**：http://localhost:39090
+- **后端API**：http://localhost:38001（开发时）
+- **前端应用**：http://localhost:38000（开发时）
+- **MySQL端口**：localhost:33066
+- **Redis端口**：localhost:36379
+- **MinIO API**：localhost:39000
 
 #### 生产环境
 - **应用主页**：http://localhost
@@ -137,7 +139,7 @@ npm run dev
 开发环境数据库连接信息：
 ```
 Host: localhost
-Port: 13306
+Port: 33066
 Database: screen_monitoring_dev
 Username: dev_user
 Password: dev_pass_123
