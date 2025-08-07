@@ -29,11 +29,11 @@ cd screen-monitoring-system
 - ✅ Adminer + Redis Commander（开发工具）
 
 **访问地址：**
-- 前端应用：http://localhost:38000
-- 后端API：http://localhost:38001/api
-- 数据库管理：http://localhost:38080
-- Redis管理：http://localhost:38081
-- MinIO控制台：http://localhost:39090
+- 前端应用：http://localhost:47827
+- 后端API：http://localhost:47828/api
+- 数据库管理：http://localhost:47825
+- Redis管理：http://localhost:47826
+- MinIO控制台：http://localhost:47824
 
 #### 生产环境
 ```bash
@@ -45,9 +45,9 @@ cd screen-monitoring-system
 - ❌ 不包含开发工具
 
 **访问地址：**
-- 应用主页：http://localhost:8080
-- API接口：http://localhost:3001/api
-- MinIO控制台：http://localhost:9090
+- 应用主页：http://localhost:47830
+- API接口：http://localhost:47831/api
+- MinIO控制台：http://localhost:47824
 
 #### 仅基础设施
 ```bash
@@ -70,6 +70,11 @@ cd screen-monitoring-system
 - ✅ MySQL + Redis + MinIO（基础设施）
 - ✅ Adminer + Redis Commander（开发工具）
 - ❌ 不包含应用服务
+
+**访问地址：**
+- 数据库管理：http://localhost:47825
+- Redis管理：http://localhost:47826
+- MinIO控制台：http://localhost:47824
 
 **适用场景：**
 - 数据库管理和维护
@@ -130,7 +135,7 @@ docker-compose -f docker-compose.unified.yml exec mysql mysqladmin ping
 docker-compose -f docker-compose.unified.yml exec redis redis-cli ping
 
 # 检查MinIO
-curl -f http://localhost:39090/minio/health/live
+curl -f http://localhost:47824/minio/health/live
 ```
 
 ### 数据管理
@@ -230,26 +235,26 @@ COMPOSE_PROFILES=infra,tools docker-compose -f docker-compose.unified.yml up -d
 
 | 服务 | 内部端口 | 外部端口 | 说明 |
 |------|----------|----------|------|
-| MySQL | 3306 | 33066 | 数据库服务 |
-| Redis | 6379 | 36379 | 缓存服务 |
-| MinIO API | 9000 | 39000 | 对象存储API |
-| MinIO Console | 9090 | 39090 | MinIO管理界面 |
-| Backend Dev | 3001 | 38001 | 后端API服务 |
-| Frontend Dev | 3000 | 38000 | 前端应用 |
-| Backend Debug | 9229 | 39229 | Node.js调试端口 |
-| Adminer | 8080 | 38080 | 数据库管理 |
-| Redis Commander | 8081 | 38081 | Redis管理 |
+| MySQL | 3306 | 47821 | 数据库服务 |
+| Redis | 6379 | 47822 | 缓存服务 |
+| MinIO API | 9000 | 47823 | 对象存储API |
+| MinIO Console | 9090 | 47824 | MinIO管理界面 |
+| Backend Dev | 3001 | 47828 | 后端API服务 |
+| Frontend Dev | 3000 | 47827 | 前端应用 |
+| Backend Debug | 9229 | 47829 | Node.js调试端口 |
+| Adminer | 8080 | 47825 | 数据库管理 |
+| Redis Commander | 8081 | 47826 | Redis管理 |
 
 ### 生产环境端口（标准端口）
 
 | 服务 | 内部端口 | 外部端口 | 说明 |
 |------|----------|----------|------|
-| MySQL | 3306 | 3306 | 数据库服务 |
-| Redis | 6379 | 6379 | 缓存服务 |
-| MinIO API | 9000 | 9000 | 对象存储API |
-| MinIO Console | 9090 | 9090 | MinIO管理界面 |
-| Backend | 3001 | 3001 | 后端API服务 |
-| Frontend | 80 | 8080 | 前端应用 |
+| MySQL | 3306 | 47821 | 数据库服务 |
+| Redis | 6379 | 47822 | 缓存服务 |
+| MinIO API | 9000 | 47823 | 对象存储API |
+| MinIO Console | 9090 | 47824 | MinIO管理界面 |
+| Backend | 3001 | 47831 | 后端API服务 |
+| Frontend | 80 | 47830 | 前端应用 |
 
 ## 故障排除
 
@@ -262,7 +267,7 @@ COMPOSE_PROFILES=infra,tools docker-compose -f docker-compose.unified.yml up -d
 **解决**:
 ```bash
 # 查看端口占用
-netstat -tulpn | grep :38001
+netstat -tulpn | grep :47828
 
 # 停止占用端口的进程
 sudo kill -9 <PID>
@@ -309,7 +314,7 @@ docker-compose -f docker-compose.unified.yml logs mysql
 **解决**:
 ```bash
 # 检查后端健康状态
-curl -f http://localhost:38001/health
+curl -f http://localhost:47828/health
 
 # 检查CORS配置
 docker-compose -f docker-compose.unified.yml logs backend-dev | grep CORS

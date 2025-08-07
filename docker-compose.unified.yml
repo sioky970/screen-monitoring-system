@@ -29,7 +29,7 @@ services:
       MYSQL_CHARSET: utf8mb4
       MYSQL_COLLATION: utf8mb4_unicode_ci
     ports:
-      - "${MYSQL_PORT:-33066}:3306"
+      - "${MYSQL_PORT:-47821}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       # 如果使用官方镜像的回退方案
@@ -59,7 +59,7 @@ services:
     container_name: screen-monitor-redis
     restart: unless-stopped
     ports:
-      - "${REDIS_PORT:-36379}:6379"
+      - "${REDIS_PORT:-47822}:6379"
     volumes:
       - redis_data:/data
       - ./deployment/docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
@@ -86,8 +86,8 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-devadmin123}
       MINIO_DEFAULT_BUCKETS: ${MINIO_DEFAULT_BUCKETS:-monitoring-screenshots}
     ports:
-      - "${MINIO_API_PORT:-39000}:9000"
-      - "${MINIO_CONSOLE_PORT:-39090}:9090"
+      - "${MINIO_API_PORT:-47823}:9000"
+      - "${MINIO_CONSOLE_PORT:-47824}:9090"
     volumes:
       - minio_data:/data
       - ./deployment/docker/minio/init:/docker-entrypoint-initdb.d
@@ -114,7 +114,7 @@ services:
     container_name: screen-monitor-adminer
     restart: unless-stopped
     ports:
-      - "${ADMINER_PORT:-38080}:8080"
+      - "${ADMINER_PORT:-47825}:8080"
     environment:
       ADMINER_DEFAULT_SERVER: mysql
     depends_on:
@@ -134,7 +134,7 @@ services:
     environment:
       REDIS_HOSTS: local:redis:6379
     ports:
-      - "${REDIS_GUI_PORT:-38081}:8081"
+      - "${REDIS_GUI_PORT:-47826}:8081"
     depends_on:
       redis:
         condition: service_healthy
@@ -164,11 +164,11 @@ services:
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-devadmin123}
       MINIO_BUCKET: ${MINIO_DEFAULT_BUCKETS:-monitoring-screenshots}
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-key}
-      CORS_ORIGIN: http://localhost:${FRONTEND_DEV_PORT:-38000}
+      CORS_ORIGIN: http://localhost:${FRONTEND_DEV_PORT:-47827}
       DEBUG_PORT: 9229
     ports:
-      - "${BACKEND_DEV_PORT:-38001}:3001"
-      - "${DEBUG_PORT:-39229}:9229"
+      - "${BACKEND_DEV_PORT:-47828}:3001"
+      - "${DEBUG_PORT:-47829}:9229"
     volumes:
       - ./backend:/app
       - backend_node_modules:/app/node_modules
@@ -200,12 +200,12 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: development
-      VITE_API_BASE_URL: http://localhost:${BACKEND_DEV_PORT:-38001}/api
-      VITE_WS_BASE_URL: ws://localhost:${BACKEND_DEV_PORT:-38001}
+      VITE_API_BASE_URL: http://localhost:${BACKEND_DEV_PORT:-47828}/api
+      VITE_WS_BASE_URL: ws://localhost:${BACKEND_DEV_PORT:-47828}
       VITE_HOST: 0.0.0.0
       VITE_PORT: 3000
     ports:
-      - "${FRONTEND_DEV_PORT:-38000}:3000"
+      - "${FRONTEND_DEV_PORT:-47827}:3000"
     volumes:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules
@@ -243,9 +243,9 @@ services:
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
       MINIO_BUCKET: ${MINIO_DEFAULT_BUCKETS:-monitoring-screenshots}
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key}
-      CORS_ORIGIN: http://localhost:${FRONTEND_PORT:-8080}
+      CORS_ORIGIN: http://localhost:${FRONTEND_PORT:-47830}
     ports:
-      - "${BACKEND_PORT:-3001}:3001"
+      - "${BACKEND_PORT:-47831}:3001"
     volumes:
       - ./backend/logs:/app/logs
     depends_on:
@@ -276,7 +276,7 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-production}
     ports:
-      - "${FRONTEND_PORT:-8080}:80"
+      - "${FRONTEND_PORT:-47830}:80"
     depends_on:
       backend:
         condition: service_healthy

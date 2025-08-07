@@ -133,15 +133,15 @@ case "$DEPLOY_MODE" in
     "dev")
         echo
         print_success "开发环境访问地址："
-        echo "  🌐 前端应用:             http://localhost:38000"
-        echo "  🔌 后端API:             http://localhost:38001/api"
-        echo "  🐛 后端调试:             http://localhost:39229"
-        echo "  📊 数据库管理:           http://localhost:38080"
-        echo "  🔧 Redis管理:           http://localhost:38081"
-        echo "  💾 MinIO控制台:         http://localhost:39090"
+        echo "  🌐 前端应用:             http://localhost:47827"
+    echo "  🔌 后端API:             http://localhost:47828/api"
+    echo "  🐛 后端调试:             http://localhost:47829"
+    echo "  📊 数据库管理:           http://localhost:47825"
+    echo "  🔧 Redis管理:           http://localhost:47826"
+    echo "  💾 MinIO控制台:         http://localhost:47824"
         echo
         print_info "数据库连接信息："
-        echo "  Host: localhost:33066"
+        echo "  Host: localhost:47821"
         echo "  Database: screen_monitoring_dev"
         echo "  Username: dev_user"
         echo "  Password: dev_pass_123"
@@ -149,17 +149,17 @@ case "$DEPLOY_MODE" in
     "prod")
         echo
         print_success "生产环境访问地址："
-        echo "  🌐 应用主页:             http://localhost:8080"
-        echo "  🔌 API接口:             http://localhost:3001/api"
-        echo "  💾 MinIO控制台:         http://localhost:9090"
+        echo "  🌐 应用主页:             http://localhost:47830"
+    echo "  🔌 API接口:             http://localhost:47831/api"
+    echo "  💾 MinIO控制台:         http://localhost:47824"
         ;;
     "infra")
         echo
         print_success "基础设施服务已启动："
-        echo "  🗄️  MySQL数据库:         localhost:33066"
-        echo "  🔄 Redis缓存:           localhost:36379"
-        echo "  💾 MinIO存储:           http://localhost:39000"
-        echo "  💾 MinIO控制台:         http://localhost:39090"
+        echo "  🗄️  MySQL数据库:         localhost:47821"
+    echo "  🔄 Redis缓存:           localhost:47822"
+    echo "  💾 MinIO存储:           http://localhost:47823"
+    echo "  💾 MinIO控制台:         http://localhost:47824"
         echo
         print_warning "下一步: 启动应用服务"
         echo "  开发环境: ./start-unified.sh dev"
@@ -168,9 +168,9 @@ case "$DEPLOY_MODE" in
     "tools")
         echo
         print_success "开发工具已启动："
-        echo "  📊 数据库管理:           http://localhost:38080"
-        echo "  🔧 Redis管理:           http://localhost:38081"
-        echo "  💾 MinIO控制台:         http://localhost:39090"
+        echo "  📊 数据库管理:           http://localhost:47825"
+    echo "  🔧 Redis管理:           http://localhost:47826"
+    echo "  💾 MinIO控制台:         http://localhost:47824"
         ;;
 esac
 

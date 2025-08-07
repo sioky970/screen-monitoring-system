@@ -89,9 +89,9 @@ cd frontend && npm install && npm run dev
 - 优化的Docker镜像构建
 
 **端口映射**：
-- 应用主页: localhost:8080
-- API接口: localhost:3001
-- MinIO控制台: localhost:9090
+- 应用主页: localhost:47830
+- API接口: localhost:47831
+- MinIO控制台: localhost:47824
 
 #### 仅基础设施部署
 ```bash

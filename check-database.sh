@@ -147,7 +147,7 @@ fi
 
 print_success "✅ 数据库检查完成！"
 print_info "数据库访问信息："
-echo "  🔗 主机: localhost:33066"
+echo "  🔗 主机: localhost:47821"
 echo "  📊 开发数据库: screen_monitoring_dev"
 echo "  👤 用户名: dev_user"
 echo "  🔑 密码: dev_pass_123"

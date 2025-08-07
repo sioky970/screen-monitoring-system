@@ -131,15 +131,15 @@ screen-monitoring-system/
 
 #### 开发环境（`./start-unified.sh dev`）
 **完整开发环境访问地址**
-- 🌐 前端应用：http://localhost:38000
-- 🔌 后端API：http://localhost:38001/api  
-- 🐛 后端调试：http://localhost:39229
-- 📊 数据库管理：http://localhost:38080
-- 🔧 Redis管理：http://localhost:38081
-- 💾 MinIO控制台：http://localhost:39090
+- 🌐 前端应用：http://localhost:47827
+- 🔌 后端API：http://localhost:47828/api  
+- 🐛 后端调试：http://localhost:47829
+- 📊 数据库管理：http://localhost:47825
+- 🔧 Redis管理：http://localhost:47826
+- 💾 MinIO控制台：http://localhost:47824
 
 **数据库连接信息**
-- Host: localhost:33066
+- Host: localhost:47821
 - Database: screen_monitoring_dev  
 - Username: dev_user
 - Password: dev_pass_123
@@ -155,22 +155,22 @@ screen-monitoring-system/
 
 #### 生产环境（`./start-unified.sh prod`）
 **生产环境访问地址**
-- 🌐 应用主页：http://localhost:8080
-- 🔌 API接口：http://localhost:3001/api
-- 💾 MinIO控制台：http://localhost:9090
+- 🌐 应用主页：http://localhost:47830
+- 🔌 API接口：http://localhost:47831/api
+- 💾 MinIO控制台：http://localhost:47824
 
 #### 基础设施模式（`./start-unified.sh infra`）
 **基础设施服务**
-- 🗄️ MySQL数据库：localhost:33066
-- 🔄 Redis缓存：localhost:36379
-- 💾 MinIO存储：http://localhost:39000
-- 💾 MinIO控制台：http://localhost:39090
+- 🗄️ MySQL数据库：localhost:47821
+- 🔄 Redis缓存：localhost:47822
+- 💾 MinIO存储：http://localhost:47823
+- 💾 MinIO控制台：http://localhost:47824
 
 #### 开发工具模式（`./start-unified.sh tools`）
 **开发工具访问**
-- 📊 数据库管理：http://localhost:38080
-- 🔧 Redis管理：http://localhost:38081
-- 💾 MinIO控制台：http://localhost:39090
+- 📊 数据库管理：http://localhost:47825
+- 🔧 Redis管理：http://localhost:47826
+- 💾 MinIO控制台：http://localhost:47824
 
 ## Docker架构设计
 
