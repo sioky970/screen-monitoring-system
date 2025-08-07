@@ -85,11 +85,11 @@ fi
 
 # 创建网络（如果不存在）
 print_info "创建Docker网络..."
-docker network create screen-monitor-network 2>/dev/null || true
+sudo docker network create screen-monitor-network 2>/dev/null || true
 
 # 检查并构建自定义MySQL镜像
 CUSTOM_IMAGE_NAME="screen-monitor-mysql:1.0.0"
-if ! docker images "$CUSTOM_IMAGE_NAME" --format "{{.Repository}}:{{.Tag}}" | grep -q "^$CUSTOM_IMAGE_NAME$"; then
+if ! sudo docker images "$CUSTOM_IMAGE_NAME" --format "{{.Repository}}:{{.Tag}}" | grep -q "^$CUSTOM_IMAGE_NAME$"; then
     print_warning "未找到自定义MySQL镜像: $CUSTOM_IMAGE_NAME"
     read -p "是否现在构建自定义MySQL镜像? (推荐) (y/N): " -n 1 -r
     echo
@@ -112,11 +112,11 @@ fi
 
 # 拉取其他镜像
 print_info "拉取Docker镜像..."
-docker-compose -f docker-compose.unified.yml pull --ignore-pull-failures || print_warning "部分镜像拉取失败，继续启动..."
+sudo docker-compose -f docker-compose.unified.yml pull --ignore-pull-failures || print_warning "部分镜像拉取失败，继续启动..."
 
 # 启动服务
 print_info "启动服务容器..."
-docker-compose -f docker-compose.unified.yml up -d
+sudo docker-compose -f docker-compose.unified.yml up -d
 
 # 等待服务启动
 print_info "等待服务启动..."
@@ -124,7 +124,7 @@ sleep 10
 
 # 检查服务状态
 print_info "检查服务状态..."
-docker-compose -f docker-compose.unified.yml ps
+sudo docker-compose -f docker-compose.unified.yml ps
 
 # 显示访问信息
 print_success "=== 服务启动完成 ==="
@@ -176,9 +176,9 @@ esac
 
 echo
 print_info "常用命令："
-echo "  查看服务状态: docker-compose -f docker-compose.unified.yml ps"
-echo "  查看服务日志: docker-compose -f docker-compose.unified.yml logs -f [service]"
-echo "  停止服务: docker-compose -f docker-compose.unified.yml down"
-echo "  重启服务: docker-compose -f docker-compose.unified.yml restart [service]"
+echo "  查看服务状态: sudo docker-compose -f docker-compose.unified.yml ps"
+echo "  查看服务日志: sudo docker-compose -f docker-compose.unified.yml logs -f [service]"
+echo "  停止服务: sudo docker-compose -f docker-compose.unified.yml down"
+echo "  重启服务: sudo docker-compose -f docker-compose.unified.yml restart [service]"
 
 print_success "🎉 部署完成！"

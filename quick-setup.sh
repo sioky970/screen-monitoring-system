@@ -23,6 +23,12 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
+# 检查Docker服务是否运行
+if ! sudo docker info &> /dev/null; then
+    print_warning "Docker服务未运行，请启动Docker服务"
+    exit 1
+fi
+
 # 构建MySQL镜像
 print_info "第1步: 构建自定义MySQL镜像（包含完整数据库结构）"
 if ./build-mysql-image.sh; then

@@ -68,7 +68,7 @@ echo ""
 print_info "开始构建Docker镜像..."
 echo "构建命令: docker build -f deployment/docker/mysql/Dockerfile -t ${FULL_IMAGE_NAME} deployment/docker/mysql/"
 
-if docker build \
+if sudo docker build \
     -f deployment/docker/mysql/Dockerfile \
     -t "${FULL_IMAGE_NAME}" \
     --build-arg BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
@@ -83,11 +83,11 @@ fi
 
 # 显示镜像信息
 print_info "镜像信息:"
-docker images "${IMAGE_NAME}" --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.CreatedAt}}\t{{.Size}}"
+sudo docker images "${IMAGE_NAME}" --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.CreatedAt}}\t{{.Size}}"
 
 # 测试镜像
 print_info "测试镜像..."
-if docker run --rm "${FULL_IMAGE_NAME}" /usr/local/bin/prebuild-info.sh; then
+if sudo docker run --rm "${FULL_IMAGE_NAME}" /usr/local/bin/prebuild-info.sh; then
     print_success "镜像测试通过"
 else
     print_warning "镜像测试失败，但构建已完成"
@@ -121,7 +121,7 @@ read -p "是否要将镜像标记为latest? (y/N): " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     print_info "标记为latest版本..."
-    docker tag "${FULL_IMAGE_NAME}" "${IMAGE_NAME}:latest"
+    sudo docker tag "${FULL_IMAGE_NAME}" "${IMAGE_NAME}:latest"
     print_success "已标记为 ${IMAGE_NAME}:latest"
 fi
 
