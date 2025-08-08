@@ -26,7 +26,7 @@ export class AuthService {
       select: ['id', 'email', 'username', 'password', 'role', 'isActive'],
     });
 
-    if (user && await this.cryptoService.comparePassword(password, user.password)) {
+    if (user && await this.cryptoService.validatePassword(password, user.password)) {
       if (!user.isActive) {
         throw new UnauthorizedException('账户已被禁用');
       }
@@ -61,7 +61,7 @@ export class AuthService {
 
     // 更新最后登录时间
     await this.userRepository.update(user.id, {
-      lastLoginAt: new Date(),
+      lastLogin: new Date(),
     });
 
     return {
@@ -157,7 +157,7 @@ export class AuthService {
     }
 
     // 验证当前密码
-    const isCurrentPasswordValid = await this.cryptoService.comparePassword(
+    const isCurrentPasswordValid = await this.cryptoService.validatePassword(
       changePasswordDto.currentPassword,
       user.password,
     );
@@ -184,7 +184,7 @@ export class AuthService {
   async getProfile(userId: number) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'email', 'username', 'role', 'isActive', 'createdAt', 'lastLoginAt'],
+      select: ['id', 'email', 'username', 'role', 'isActive', 'createdAt', 'lastLogin'],
     });
 
     if (!user) {

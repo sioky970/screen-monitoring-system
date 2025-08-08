@@ -154,11 +154,11 @@ export class ClientsService {
     
     const updateData: Partial<Client> = {
       status,
-      lastOnline: new Date(),
+      lastHeartbeat: new Date(),
     };
 
     if (ip) {
-      updateData.ip = ip;
+      updateData.ipAddress = ip;
     }
 
     await this.clientRepository.update(clientId, updateData);
@@ -167,7 +167,7 @@ export class ClientsService {
     await this.logClientOnlineStatus(clientId, status);
 
     // WebSocket 通知前端
-    this.webSocketService.emitClientStatus(clientId, { status, lastOnline: new Date(), ip });
+    this.webSocketService.emitClientStatus(clientId, { status, lastHeartbeat: new Date(), ipAddress: ip });
   }
 
   async getClientStats(): Promise<{
@@ -256,8 +256,8 @@ export class ClientsService {
   private async logClientOnlineStatus(clientId: string, status: ClientStatus): Promise<void> {
     const log = this.clientOnlineLogRepository.create({
       clientId,
-      status: status === ClientStatus.ONLINE ? 'online' : 'offline',
-      timestamp: new Date(),
+      onlineTime: status === ClientStatus.ONLINE ? new Date() : null,
+      offlineTime: status === ClientStatus.ONLINE ? null : new Date(),
     });
 
     await this.clientOnlineLogRepository.save(log);
@@ -269,7 +269,7 @@ export class ClientsService {
   }> {
     const [logs, total] = await this.clientOnlineLogRepository.findAndCount({
       where: { clientId },
-      order: { timestamp: 'DESC' },
+      order: { onlineTime: 'DESC' },
       take: pageSize,
       skip: (page - 1) * pageSize,
     });

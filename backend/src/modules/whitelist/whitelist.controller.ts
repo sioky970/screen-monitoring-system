@@ -103,7 +103,7 @@ export class WhitelistController {
   @ApiOperation({ summary: '批量导入白名单' })
   @Roles(UserRole.ADMIN)
   @UseGuards(RolesGuard)
-  import(@Body() body: { addresses: CreateWhitelistDto[] }, @CurrentUser() currentUser: any) {
+  import(@Body() body: { addresses: string[] }, @CurrentUser() currentUser: any) {
     return this.whitelistService.batchImport(body.addresses, currentUser.userId);
   }
 }

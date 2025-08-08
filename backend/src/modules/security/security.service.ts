@@ -1,12 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, In } from 'typeorm';
-import { SecurityScreenshot, AlertType, AlertStatus } from '../../entities/security-screenshot.entity';
-import { Notification } from '../../entities/notification.entity';
+import { SecurityScreenshot, AlertStatus } from '../../entities/security-screenshot.entity';
+import { Notification, NotificationType } from '../../entities/notification.entity';
 import { SystemLog } from '../../entities/system-log.entity';
 import { BlockchainWhitelist } from '../../entities/blockchain-whitelist.entity';
 import { Client } from '../../entities/client.entity';
-import { CreateSecurityAlertDto } from './dto/create-security-alert.dto';
+import { CreateSecurityAlertDto, AlertType } from './dto/create-security-alert.dto';
 import { UpdateAlertStatusDto } from './dto/update-alert-status.dto';
 import { QuerySecurityAlertsDto } from './dto/query-security-alerts.dto';
 import { ScreenshotUploadDto } from './dto/screenshot-upload.dto';
@@ -114,7 +114,7 @@ export class SecurityService {
     // 创建安全告警
     const alert = this.screenshotRepository.create({
       ...createAlertDto,
-      status: AlertStatus.PENDING,
+      alertStatus: AlertStatus.PENDING,
     });
 
     const savedAlert = await this.screenshotRepository.save(alert);
@@ -123,8 +123,8 @@ export class SecurityService {
     this.webSocketService.emitSecurityAlert({
       id: savedAlert.id,
       clientId: savedAlert.clientId,
-      alertType: savedAlert.alertType,
-      blockchainAddress: savedAlert.blockchainAddress,
+      addressType: savedAlert.addressType,
+      detectedAddress: savedAlert.detectedAddress,
       createdAt: savedAlert.createdAt,
       client: {
         clientNumber: client.clientNumber,
@@ -153,10 +153,10 @@ export class SecurityService {
     const alert = await this.findAlertById(id);
 
     await this.screenshotRepository.update(id, {
-      status: updateStatusDto.status,
-      handledBy: userId || null,
-      handledAt: updateStatusDto.status !== AlertStatus.PENDING ? new Date() : null,
-      remark: updateStatusDto.remark,
+      alertStatus: updateStatusDto.status,
+      reviewedBy: userId || null,
+      reviewedAt: updateStatusDto.status !== AlertStatus.PENDING ? new Date() : null,
+      reviewNote: updateStatusDto.remark,
     });
 
     // 记录系统日志
@@ -174,9 +174,9 @@ export class SecurityService {
     const alert = await this.findAlertById(id);
 
     // 删除关联的截图文件
-    if (alert.screenshotPath) {
+    if (alert.minioObjectKey) {
       try {
-        await this.minioService.deleteFile(alert.screenshotPath);
+        await this.minioService.deleteFile(alert.minioObjectKey);
       } catch (error) {
         console.error('删除截图文件失败:', error);
       }
@@ -187,7 +187,7 @@ export class SecurityService {
     // 记录系统日志
     await this.logSecurityEvent(
       'SECURITY_ALERT_DELETED',
-      `删除安全告警: ${alert.alertType}`,
+      `删除安全告警: ${alert.addressType}`,
       id.toString(),
       userId,
     );
@@ -208,7 +208,7 @@ export class SecurityService {
 
     return {
       url: uploadResult.url,
-      path: uploadResult.path,
+      path: uploadResult.key,
     };
   }
 
@@ -289,23 +289,23 @@ export class SecurityService {
 
     const [totalAlerts, pendingAlerts, resolvedAlerts, ignoredAlerts] = await Promise.all([
       this.screenshotRepository.count(),
-      this.screenshotRepository.count({ where: { status: AlertStatus.PENDING } }),
-      this.screenshotRepository.count({ where: { status: AlertStatus.RESOLVED } }),
-      this.screenshotRepository.count({ where: { status: AlertStatus.IGNORED } }),
+      this.screenshotRepository.count({ where: { alertStatus: AlertStatus.PENDING } }),
+      this.screenshotRepository.count({ where: { alertStatus: AlertStatus.RESOLVED } }),
+      this.screenshotRepository.count({ where: { alertStatus: AlertStatus.IGNORED } }),
     ]);
 
     const todayAlerts = await this.screenshotRepository.count({
       where: {
-        createdAt: Between(today, tomorrow),
+        screenshotTime: Between(today, tomorrow),
       },
     });
 
     // 统计各类型告警数量
     const alertsByTypeResult = await this.screenshotRepository
       .createQueryBuilder('screenshot')
-      .select('screenshot.alertType', 'type')
+      .select('screenshot.addressType', 'type')
       .addSelect('COUNT(*)', 'count')
-      .groupBy('screenshot.alertType')
+      .groupBy('screenshot.addressType')
       .getRawMany();
 
     const alertsByType: Record<string, number> = {};
@@ -329,11 +329,13 @@ export class SecurityService {
     title: string,
     content: string,
     type: string,
+    userId?: number,
   ): Promise<void> {
     const notification = this.notificationRepository.create({
+      userId,
       title,
       content,
-      type,
+      type: type as NotificationType,
     });
 
     await this.notificationRepository.save(notification);
@@ -357,8 +359,8 @@ export class SecurityService {
     const log = this.systemLogRepository.create({
       action,
       description,
-      resourceType: 'security',
-      resourceId,
+      targetType: 'security',
+      targetId: resourceId,
       userId,
     });
 

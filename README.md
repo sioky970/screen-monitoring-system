@@ -64,11 +64,39 @@ screen-monitoring-system/
 - Docker & Docker Compose
 - Node.js 16+
 - .NET 6+
-- MySQL 8.0+
-- Redis 7.0+
-- MinIO
+- MySQL 8.0+（Docker提供）
+- Redis 7.0+（Docker提供）
+- MinIO（Docker提供）
 
-### 快速部署（Docker方式）
+### 🚀 推荐：本地开发模式（混合架构）
+
+**前后端本地运行 + 基础设施Docker化**
+
+```bash
+# 1. 启动基础设施服务（MySQL、Redis、MinIO）
+./start-infra.sh start --with-tools
+
+# 2. 启动前后端应用
+./start-dev.sh
+```
+
+**访问地址：**
+- 🌐 前端应用：http://localhost:3000
+- 🔌 后端API：http://localhost:3001/api
+- 📖 API文档：http://localhost:3001/api/docs
+- 🔧 数据库管理：http://localhost:8080
+- 🔧 Redis管理：http://localhost:8081
+
+**优势：**
+- ✅ 启动速度快
+- ✅ 调试便利
+- ✅ IDE完美支持
+- ✅ 热重载原生支持
+- ✅ 资源占用少
+
+📋 **详细说明**：[本地开发指南](./LOCAL-DEVELOPMENT.md)
+
+### 快速部署（完整Docker方式）
 
 1. **克隆项目**
    ```bash
@@ -125,6 +153,38 @@ screen-monitoring-system/
 5. **客户端开发**
    ```bash
    cd client && dotnet build && dotnet run
+   ```
+
+### 本地开发模式
+
+**推荐用于日常开发，性能更好，调试更便利**
+
+1. **启动基础设施服务**
+   ```bash
+   # 启动MySQL、Redis、MinIO等服务
+   ./start-infra.sh start --with-tools
+   ```
+
+2. **启动前后端应用**
+   ```bash
+   # 安装依赖（首次运行）
+   cd backend && npm install && cd ..
+   cd frontend && npm install && cd ..
+   
+   # 启动开发服务
+   ./start-dev.sh
+   ```
+
+3. **访问应用**
+   - 前端：http://localhost:3000
+   - 后端API：http://localhost:3001/api
+   - 数据库管理：http://localhost:8080
+
+4. **停止服务**
+   ```bash
+   # 停止前后端（Ctrl+C）
+   # 停止基础设施
+   ./start-infra.sh stop
    ```
 
 ### 访问系统

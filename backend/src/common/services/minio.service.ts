@@ -1,6 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Client as MinioClient, BucketItem } from 'minio';
+import { Client as MinioClient, BucketItem, CopyConditions } from 'minio';
 import * as crypto from 'crypto';
 
 export interface UploadResult {
@@ -159,10 +159,12 @@ export class MinioService {
 
   async copyFile(sourceKey: string, destKey: string): Promise<void> {
     const copySource = `/${this.bucketName}/${sourceKey}`;
+    const conditions = new CopyConditions();
     await this.minioClient.copyObject(
       this.bucketName,
       destKey,
       copySource,
+      conditions,
     );
   }
 

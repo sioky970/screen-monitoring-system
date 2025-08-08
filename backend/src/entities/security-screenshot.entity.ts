@@ -14,6 +14,7 @@ export enum AlertStatus {
   CONFIRMED = 'confirmed',
   FALSE_POSITIVE = 'false_positive',
   IGNORED = 'ignored',
+  RESOLVED = 'resolved',
 }
 
 @Entity('security_screenshots')

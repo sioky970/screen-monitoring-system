@@ -12,7 +12,7 @@ export const typeormConfig = registerAs(
     database: process.env.DB_DATABASE || 'screen_monitoring',
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
     migrations: [__dirname + '/../migrations/*{.ts,.js}'],
-    synchronize: process.env.NODE_ENV !== 'production',
+    synchronize: process.env.DB_SYNCHRONIZE === 'true' || process.env.NODE_ENV !== 'production', // 每次启动时同步数据库结构
     logging: process.env.NODE_ENV === 'development',
     timezone: '+08:00',
     charset: 'utf8mb4',

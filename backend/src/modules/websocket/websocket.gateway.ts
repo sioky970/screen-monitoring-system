@@ -1,5 +1,5 @@
 import {
-  WebSocketGateway,
+  WebSocketGateway as WSGateway,
   WebSocketServer,
   SubscribeMessage,
   MessageBody,
@@ -13,7 +13,7 @@ import { UseGuards, Logger } from '@nestjs/common';
 import { WebSocketService } from './websocket.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-@WebSocketGateway(3002, {
+@WSGateway(3002, {
   cors: {
     origin: process.env.CORS_ORIGIN || '*',
     methods: ['GET', 'POST'],
