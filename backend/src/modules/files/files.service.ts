@@ -18,6 +18,14 @@ export class FilesService {
     return await this.minioService.getFileUrl(key, expiry);
   }
 
+  async getFile(key: string) {
+    return await this.minioService.getFile(key);
+  }
+
+  async getFileInfo(key: string) {
+    return await this.minioService.getFileInfo(key);
+  }
+
   async deleteFile(key: string) {
     return await this.minioService.deleteFile(key);
   }

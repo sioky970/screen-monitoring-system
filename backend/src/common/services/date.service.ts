@@ -23,6 +23,16 @@ export class DateService {
     return moment().endOf('day').toDate();
   }
 
+  // 获取指定日期的开始时间
+  getStartOfDay(date: Date): Date {
+    return moment(date).startOf('day').toDate();
+  }
+
+  // 获取指定日期的结束时间
+  getEndOfDay(date: Date): Date {
+    return moment(date).endOf('day').toDate();
+  }
+
   // 获取昨天开始时间
   yesterdayStart(): Date {
     return moment().subtract(1, 'day').startOf('day').toDate();

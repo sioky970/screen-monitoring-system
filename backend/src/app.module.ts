@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 // 配置
 import { typeormConfig } from './config/typeorm.config';
@@ -14,7 +15,6 @@ import { CommonModule } from './common/common.module';
 
 // 业务模块
 import { AuthModule } from './modules/auth/auth.module';
-import { UsersModule } from './modules/users/users.module';
 import { ClientsModule } from './modules/clients/clients.module';
 import { SecurityModule } from './modules/security/security.module';
 import { WhitelistModule } from './modules/whitelist/whitelist.module';
@@ -22,6 +22,7 @@ import { SystemModule } from './modules/system/system.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { FilesModule } from './modules/files/files.module';
 import { WebSocketModule } from './modules/websocket/websocket.module';
+import { JwtGlobalAuthGuard } from './modules/auth/guards/jwt-global.guard';
 
 @Module({
   imports: [
@@ -66,7 +67,6 @@ import { WebSocketModule } from './modules/websocket/websocket.module';
 
     // 业务模块
     AuthModule,
-    UsersModule,
     ClientsModule,
     SecurityModule,
     WhitelistModule,
@@ -76,6 +76,11 @@ import { WebSocketModule } from './modules/websocket/websocket.module';
     WebSocketModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: JwtGlobalAuthGuard,
+    },
+  ],
 })
 export class AppModule {}

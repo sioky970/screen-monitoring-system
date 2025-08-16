@@ -1,27 +1,24 @@
 version: '3.8'
 
-# 统一Docker Compose配置文件
-# 通过环境变量控制服务启动和配置
-#
+# 统一的 Docker Compose 配置文件
+# 通过 Profiles 机制控制不同环境的服务启动
 # 使用方法：
-# 开发环境完整: COMPOSE_PROFILES=dev docker-compose -f docker-compose.unified.yml up
-# 生产环境完整: COMPOSE_PROFILES=prod docker-compose -f docker-compose.unified.yml up  
-# 仅基础设施: COMPOSE_PROFILES=infra docker-compose -f docker-compose.unified.yml up
-# 开发+工具: COMPOSE_PROFILES=dev,tools docker-compose -f docker-compose.unified.yml up
+#   开发环境: COMPOSE_PROFILES=dev docker-compose -f docker-compose.unified.yml up -d
+#   生产环境: COMPOSE_PROFILES=prod docker-compose -f docker-compose.unified.yml up -d
+#   仅基础设施: COMPOSE_PROFILES=infra docker-compose -f docker-compose.unified.yml up -d
+#   开发+工具: COMPOSE_PROFILES=dev,tools docker-compose -f docker-compose.unified.yml up -d
 
 services:
   # ===================
   # 基础设施服务
   # ===================
   
-  # MySQL 数据库 - 使用预构建镜像
+  # MySQL 数据库
   mysql:
-    # 使用自定义镜像（包含完整数据库结构）或官方镜像
     image: ${MYSQL_CUSTOM_IMAGE:-screen-monitor-mysql:1.0.0}
     container_name: screen-monitor-mysql
     restart: unless-stopped
     environment:
-      # 预构建镜像已包含这些设置，这里用于覆盖
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-dev_root_123}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-screen_monitoring_dev}
       MYSQL_USER: ${MYSQL_USER:-dev_user}
@@ -32,10 +29,6 @@ services:
       - "${MYSQL_PORT:-47821}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      # 如果使用官方镜像的回退方案
-      - ./deployment/docker/mysql/init:/docker-entrypoint-initdb.d:ro
-      - ./deployment/docker/mysql/dev-init:/docker-entrypoint-initdb.d/dev:ro
-      - ./deployment/docker/mysql/conf:/etc/mysql/conf.d:ro
     command: >
       --default-authentication-plugin=mysql_native_password
       --character-set-server=utf8mb4
@@ -62,8 +55,7 @@ services:
       - "${REDIS_PORT:-47822}:6379"
     volumes:
       - redis_data:/data
-      - ./deployment/docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
-    command: redis-server /usr/local/etc/redis/redis.conf --appendonly yes
+    command: redis-server --appendonly yes
     networks:
       - screen-monitor-network
     healthcheck:
@@ -90,7 +82,6 @@ services:
       - "${MINIO_CONSOLE_PORT:-47824}:9090"
     volumes:
       - minio_data:/data
-      - ./deployment/docker/minio/init:/docker-entrypoint-initdb.d
     command: server /data --console-address ":9090"
     networks:
       - screen-monitor-network
@@ -105,7 +96,162 @@ services:
       - prod
 
   # ===================
-  # 开发工具服务
+  # 开发环境应用服务
+  # ===================
+
+  # 后端服务 - 开发环境
+  backend-dev:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: screen-monitor-backend-dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      USE_DEV_DATABASE: false
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USERNAME: ${MYSQL_USER:-dev_user}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-dev_pass_123}
+      DB_DATABASE: ${MYSQL_DATABASE:-screen_monitoring_dev}
+      DB_SYNCHRONIZE: true
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-devadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-devadmin123}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-key}
+    ports:
+      - "${BACKEND_DEV_PORT:-47828}:3000"
+      - "${DEBUG_PORT:-47829}:9229"
+      - "${WS_DEV_PORT:-3005}:3005"
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/package.json:/app/package.json
+      - ./backend/tsconfig.json:/app/tsconfig.json
+      - backend_node_modules:/app/node_modules
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - screen-monitor-network
+    profiles:
+      - dev
+    command: npm run start:dev
+
+  # 前端服务 - 开发环境
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: screen-monitor-frontend-dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      VITE_API_BASE_URL: http://backend-dev:3000/api
+      VITE_BACKEND_ORIGIN: http://backend-dev:3000
+    ports:
+      - "${FRONTEND_DEV_PORT:-47827}:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/package.json:/app/package.json
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      - ./frontend/tsconfig.json:/app/tsconfig.json
+      - ./frontend/index.html:/app/index.html
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      - backend-dev
+    networks:
+      - screen-monitor-network
+    profiles:
+      - dev
+    command: npm run dev -- --host 0.0.0.0
+
+  # ===================
+  # 生产环境应用服务
+  # ===================
+
+  # 后端服务 - 生产环境（支持热重载开发）
+  backend-prod:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: screen-monitor-backend-prod
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USERNAME: ${MYSQL_USER:-dev_user}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-dev_pass_123}
+      DB_DATABASE: ${MYSQL_DATABASE:-screen_monitoring_dev}
+      DB_SYNCHRONIZE: ${DB_SYNCHRONIZE:-true}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-devadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-devadmin123}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-key}
+    ports:
+      - "${BACKEND_PORT:-47831}:3000"
+      - "${WS_PORT:-3005}:3005"
+      - "${DEBUG_PORT:-47829}:9229"
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/package.json:/app/package.json
+      - ./backend/tsconfig.json:/app/tsconfig.json
+      - backend_node_modules:/app/node_modules
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - screen-monitor-network
+    profiles:
+      - prod
+    command: npm run start:dev
+
+  # 前端服务 - 生产环境（支持热重载开发）
+  frontend-prod:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: screen-monitor-frontend-prod
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      VITE_API_BASE_URL: http://localhost:47831/api
+      VITE_BACKEND_ORIGIN: http://localhost:47831
+    ports:
+      - "${FRONTEND_PORT:-47830}:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/package.json:/app/package.json
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      - ./frontend/tsconfig.json:/app/tsconfig.json
+      - ./frontend/index.html:/app/index.html
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      - backend-prod
+    networks:
+      - screen-monitor-network
+    profiles:
+      - prod
+    command: npm run dev -- --host 0.0.0.0
+
+  # ===================
+  # 开发工具服务（可选）
   # ===================
 
   # 数据库管理工具
@@ -124,7 +270,6 @@ services:
       - screen-monitor-network
     profiles:
       - tools
-      - dev
 
   # Redis GUI工具  
   redis-commander:
@@ -142,154 +287,6 @@ services:
       - screen-monitor-network
     profiles:
       - tools
-      - dev
-
-  # ===================
-  # 应用服务 - 开发模式
-  # ===================
-
-  # 后端开发服务
-  backend-dev:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.dev
-    container_name: screen-monitor-backend-dev
-    restart: unless-stopped
-    environment:
-      NODE_ENV: development
-      DATABASE_URL: mysql://${MYSQL_USER:-dev_user}:${MYSQL_PASSWORD:-dev_pass_123}@mysql:3306/${MYSQL_DATABASE:-screen_monitoring_dev}
-      REDIS_URL: redis://redis:6379
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-devadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-devadmin123}
-      MINIO_BUCKET: ${MINIO_DEFAULT_BUCKETS:-monitoring-screenshots}
-      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-key}
-      CORS_ORIGIN: http://localhost:${FRONTEND_DEV_PORT:-47827}
-      DEBUG_PORT: 9229
-    ports:
-      - "${BACKEND_DEV_PORT:-47828}:3001"
-      - "${DEBUG_PORT:-47829}:9229"
-    volumes:
-      - ./backend:/app
-      - backend_node_modules:/app/node_modules
-      - ./backend/logs:/app/logs
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-    networks:
-      - screen-monitor-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    profiles:
-      - dev
-
-  # 前端开发服务
-  frontend-dev:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.dev
-    container_name: screen-monitor-frontend-dev
-    restart: unless-stopped
-    environment:
-      NODE_ENV: development
-      VITE_API_BASE_URL: http://localhost:${BACKEND_DEV_PORT:-47828}/api
-      VITE_WS_BASE_URL: ws://localhost:${BACKEND_DEV_PORT:-47828}
-      VITE_HOST: 0.0.0.0
-      VITE_PORT: 3000
-    ports:
-      - "${FRONTEND_DEV_PORT:-47827}:3000"
-    volumes:
-      - ./frontend:/app
-      - frontend_node_modules:/app/node_modules
-    depends_on:
-      backend-dev:
-        condition: service_healthy
-    networks:
-      - screen-monitor-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    profiles:
-      - dev
-
-  # ===================
-  # 应用服务 - 生产模式
-  # ===================
-
-  # 后端生产服务
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: screen-monitor-backend
-    restart: unless-stopped
-    environment:
-      NODE_ENV: ${NODE_ENV:-production}
-      DATABASE_URL: mysql://${MYSQL_USER:-monitor_user}:${MYSQL_PASSWORD:-monitorPass123}@mysql:3306/${MYSQL_DATABASE:-screen_monitoring}
-      REDIS_URL: redis://redis:6379
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
-      MINIO_BUCKET: ${MINIO_DEFAULT_BUCKETS:-monitoring-screenshots}
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key}
-      CORS_ORIGIN: http://localhost:${FRONTEND_PORT:-47830}
-    ports:
-      - "${BACKEND_PORT:-47831}:3001"
-    volumes:
-      - ./backend/logs:/app/logs
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-    networks:
-      - screen-monitor-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    profiles:
-      - prod
-
-  # 前端生产服务
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: screen-monitor-frontend
-    restart: unless-stopped
-    environment:
-      NODE_ENV: ${NODE_ENV:-production}
-    ports:
-      - "${FRONTEND_PORT:-47830}:80"
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - screen-monitor-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    profiles:
-      - prod
 
 # 数据卷
 volumes:

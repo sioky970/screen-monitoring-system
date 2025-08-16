@@ -6,6 +6,8 @@ import Components from 'unplugin-vue-components/vite'
 import { AntDesignVueResolver } from 'unplugin-vue-components/resolvers'
 
 export default defineConfig({
+  // 允许通过环境变量自定义应用的基础路径（用于反向代理子路径部署），例如 VITE_BASE_PATH=/app/
+  base: process.env.VITE_BASE_PATH || '/',
   plugins: [
     vue(),
     AutoImport({
@@ -28,16 +30,23 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port: 47827,
+    port: 5173,
     proxy: {
+      // 允许通过环境变量覆盖后端地址，方便在反向代理/不同环境下运行
       '/api': {
-        target: 'http://localhost:47828',
+        target: process.env.VITE_BACKEND_ORIGIN || 'http://localhost:47831',
         changeOrigin: true,
       },
       '/socket.io': {
-        target: 'http://localhost:3002',
+        target: process.env.VITE_BACKEND_ORIGIN || 'http://localhost:47831',
         changeOrigin: true,
         ws: true,
+      },
+      // 本地开发时，把 /storage 代理到 MinIO，使截图 URL 可访问
+      '/storage': {
+        target: 'http://localhost:47823',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/storage/, ''),
       }
     }
   }

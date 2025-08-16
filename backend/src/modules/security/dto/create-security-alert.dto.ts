@@ -1,6 +1,12 @@
 import { IsString, IsNotEmpty, IsEnum, IsOptional, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { AlertType } from '../../../entities/security-screenshot.entity';
+
+export enum AlertType {
+  BLOCKCHAIN_ADDRESS = 'blockchain_address',
+  SUSPICIOUS_ACTIVITY = 'suspicious_activity',
+  MALWARE_DETECTED = 'malware_detected',
+  UNAUTHORIZED_ACCESS = 'unauthorized_access',
+}
 
 export class CreateSecurityAlertDto {
   @ApiProperty({ description: '客户端ID' })

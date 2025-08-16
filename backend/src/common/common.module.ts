@@ -6,6 +6,7 @@ import { Client as MinioClient } from 'minio';
 // 服务提供者
 import { RedisService } from './services/redis.service';
 import { MinioService } from './services/minio.service';
+import { UploadQueueService } from './services/upload-queue.service';
 import { CryptoService } from './services/crypto.service';
 import { DateService } from './services/date.service';
 
@@ -21,7 +22,15 @@ import { DateService } from './services/date.service';
           socket: {
             host: redisConfig.host,
             port: redisConfig.port,
+            connectTimeout: redisConfig.connectTimeout,
+            keepAlive: 30000, // 30秒保活
+            reconnectStrategy: (retries) => {
+              // 指数退避重连策略
+              const delay = Math.min(retries * 50, 2000);
+              return delay;
+            },
           },
+          commandsQueueMaxLength: 1000,
           password: redisConfig.password,
           database: redisConfig.db,
         });
@@ -40,6 +49,8 @@ import { DateService } from './services/date.service';
           useSSL: minioConfig.useSSL,
           accessKey: minioConfig.accessKey,
           secretKey: minioConfig.secretKey,
+          // 优化连接配置
+          region: 'us-east-1',
         });
       },
       inject: [ConfigService],
@@ -48,6 +59,7 @@ import { DateService } from './services/date.service';
     // 服务
     RedisService,
     MinioService,
+    UploadQueueService,
     CryptoService,
     DateService,
   ],
@@ -56,6 +68,7 @@ import { DateService } from './services/date.service';
     'MINIO_CLIENT',
     RedisService,
     MinioService,
+    UploadQueueService,
     CryptoService,
     DateService,
   ],

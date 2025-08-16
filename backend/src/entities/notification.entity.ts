@@ -1,6 +1,5 @@
-import { Entity, Column, Index, ManyToOne, JoinColumn, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, Column, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
-import { User } from './user.entity';
 
 export enum NotificationType {
   INFO = 'info',
@@ -11,7 +10,7 @@ export enum NotificationType {
 
 @Entity('notifications')
 export class Notification extends BaseEntity {
-  @PrimaryGeneratedColumn('increment', { type: 'bigint' })
+  @PrimaryGeneratedColumn('increment')
   id: number;
 
   @Column({
@@ -19,7 +18,7 @@ export class Notification extends BaseEntity {
     nullable: true,
     comment: '目标用户ID（NULL表示系统通知）',
   })
-  @Index('idx_user_read')
+  @Index('idx_notification_user_id')
   userId: number;
 
   @Column({
@@ -37,8 +36,8 @@ export class Notification extends BaseEntity {
   content: string;
 
   @Column({
-    type: 'enum',
-    enum: NotificationType,
+    type: 'varchar',
+    length: 20,
     default: NotificationType.INFO,
     comment: '通知类型',
   })
@@ -73,7 +72,7 @@ export class Notification extends BaseEntity {
     default: 0,
     comment: '是否已读',
   })
-  @Index('idx_user_read')
+  @Index('idx_is_read')
   isRead: boolean;
 
   @Column({
@@ -81,19 +80,16 @@ export class Notification extends BaseEntity {
     default: 0,
     comment: '是否为系统通知',
   })
-  @Index('idx_system_expires')
+  @Index('idx_is_system')
   isSystem: boolean;
 
   @Column({
-    type: 'timestamp',
+    type: 'datetime',
     nullable: true,
     comment: '过期时间',
   })
-  @Index('idx_system_expires')
+  @Index('idx_expires_at')
   expiresAt: Date;
 
-  // 关联关系
-  @ManyToOne(() => User, (user) => user.notifications)
-  @JoinColumn({ name: 'userId' })
-  user: User;
+
 }

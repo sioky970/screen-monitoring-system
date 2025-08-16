@@ -1,0 +1,7 @@
+{
+  "client_id": "909000ba-81e7-4c27-921f-4c9eb22a587c",
+  "client_name": "Python监控客户端",
+  "client_version": "1.0.0",
+  "created_at": "392083521555413919",
+  "last_updated": "285399174317658419"
+}

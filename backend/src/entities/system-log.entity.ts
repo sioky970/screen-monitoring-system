@@ -1,10 +1,9 @@
-import { Entity, Column, Index, ManyToOne, JoinColumn, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, Column, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
-import { User } from './user.entity';
 
 @Entity('system_logs')
 export class SystemLog extends BaseEntity {
-  @PrimaryGeneratedColumn('increment', { type: 'bigint' })
+  @PrimaryGeneratedColumn('increment')
   id: number;
 
   @Column({
@@ -12,16 +11,16 @@ export class SystemLog extends BaseEntity {
     nullable: true,
     comment: '操作用户ID',
   })
-  @Index('idx_user_action')
+  @Index('idx_user_id')
   userId: number;
 
   @Column({
-    type: 'char',
+    type: 'varchar',
     length: 36,
     nullable: true,
     comment: '相关客户端ID',
   })
-  @Index('idx_client_time')
+  @Index('idx_log_client_id')
   clientId: string;
 
   @Column({
@@ -29,7 +28,7 @@ export class SystemLog extends BaseEntity {
     length: 100,
     comment: '操作类型',
   })
-  @Index('idx_user_action')
+  @Index('idx_action_type')
   @Index('idx_action_time')
   action: string;
 
@@ -78,8 +77,5 @@ export class SystemLog extends BaseEntity {
   })
   extraData: Record<string, any>;
 
-  // 关联关系
-  @ManyToOne(() => User, (user) => user.logs)
-  @JoinColumn({ name: 'userId' })
-  user: User;
+
 }

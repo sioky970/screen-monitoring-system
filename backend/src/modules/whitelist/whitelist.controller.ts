@@ -12,20 +12,17 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { WhitelistService } from './whitelist.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
+
 import { CreateWhitelistDto, UpdateWhitelistDto, QueryWhitelistDto } from './dto';
-import { UserRole } from '../../entities/user.entity';
+import { UserRole } from '../../common/enums/user-role.enum';
 
 @ApiTags('白名单管理')
 @Controller('whitelist')
-@UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
 export class WhitelistController {
   constructor(private readonly whitelistService: WhitelistService) {}
 
+  @Public()
   @Get()
   @ApiOperation({ summary: '获取白名单列表' })
   @ApiQuery({ name: 'page', required: false, type: Number })
@@ -37,73 +34,75 @@ export class WhitelistController {
     return this.whitelistService.findAll(query);
   }
 
+  @Public()
   @Get('stats')
   @ApiOperation({ summary: '获取白名单统计信息' })
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
-  @UseGuards(RolesGuard)
   getStats() {
     return this.whitelistService.getStats();
   }
 
+  @Public()
   @Post()
   @ApiOperation({ summary: '添加白名单地址' })
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
-  @UseGuards(RolesGuard)
-  create(@Body() createWhitelistDto: CreateWhitelistDto, @CurrentUser() currentUser: any) {
-    return this.whitelistService.create(createWhitelistDto, currentUser.userId);
+  create(@Body() createWhitelistDto: CreateWhitelistDto) {
+    return this.whitelistService.create(createWhitelistDto, null);
   }
 
+  @Public()
   @Get(':id')
   @ApiOperation({ summary: '获取白名单详情' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.whitelistService.findById(id);
   }
 
+  @Public()
   @Put(':id')
   @ApiOperation({ summary: '更新白名单信息' })
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
-  @UseGuards(RolesGuard)
   update(
     @Param('id', ParseIntPipe) id: number, 
-    @Body() updateWhitelistDto: UpdateWhitelistDto,
-    @CurrentUser() currentUser: any
+    @Body() updateWhitelistDto: UpdateWhitelistDto
   ) {
-    return this.whitelistService.update(id, updateWhitelistDto, currentUser.userId);
+    return this.whitelistService.update(id, updateWhitelistDto, null);
   }
 
+  @Public()
   @Put(':id/status')
   @ApiOperation({ summary: '更新白名单状态' })
-  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
-  @UseGuards(RolesGuard)
   updateStatus(
     @Param('id', ParseIntPipe) id: number, 
-    @Body() body: { isActive: boolean },
-    @CurrentUser() currentUser: any
+    @Body() body: { isActive: boolean }
   ) {
-    return this.whitelistService.updateStatus(id, body.isActive, currentUser.userId);
+    return this.whitelistService.updateStatus(id, body.isActive, null);
   }
 
+  @Public()
   @Delete(':id')
   @ApiOperation({ summary: '删除白名单地址' })
-  @Roles(UserRole.ADMIN)
-  @UseGuards(RolesGuard)
-  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() currentUser: any) {
-    return this.whitelistService.remove(id, currentUser.userId);
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.whitelistService.remove(id, null);
   }
 
+  @Public()
   @Post('batch-delete')
   @ApiOperation({ summary: '批量删除白名单' })
-  @Roles(UserRole.ADMIN)
-  @UseGuards(RolesGuard)
-  batchDelete(@Body() body: { ids: number[] }, @CurrentUser() currentUser: any) {
-    return this.whitelistService.batchDelete(body.ids, currentUser.userId);
+  batchDelete(@Body() body: { ids: number[] }) {
+    return this.whitelistService.batchDelete(body.ids, null);
   }
 
+  @Public()
   @Post('import')
   @ApiOperation({ summary: '批量导入白名单' })
-  @Roles(UserRole.ADMIN)
-  @UseGuards(RolesGuard)
-  import(@Body() body: { addresses: CreateWhitelistDto[] }, @CurrentUser() currentUser: any) {
-    return this.whitelistService.batchImport(body.addresses, currentUser.userId);
+  import(@Body() body: { addresses: string[] }) {
+    return this.whitelistService.batchImport(body.addresses, null);
+  }
+
+  @Public()
+  @Get('addresses/active')
+  @ApiOperation({
+    summary: '获取所有激活的白名单地址（供客户端检测使用）',
+    description: '返回所有状态为激活的区块链地址列表，客户端用于本地违规检测'
+  })
+  getActiveAddresses() {
+    return this.whitelistService.getActiveAddresses();
   }
 }

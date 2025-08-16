@@ -1,40 +1,36 @@
-import { ExtractJwt, Strategy } from 'passport-jwt';
+import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from '../../../entities/user.entity';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(
-    private configService: ConfigService,
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
-  ) {
+  constructor(private configService: ConfigService) {
+    const secret = configService.get<string>('JWT_SECRET') || 'screen-monitoring-secret-key';
+    console.log('JWT Strategy - constructor - JWT_SECRET:', configService.get<string>('JWT_SECRET'));
+    console.log('JWT Strategy - constructor - using secret:', secret);
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get('JWT_SECRET', 'your-secret-key'),
+      secretOrKey: secret,
     });
   }
 
   async validate(payload: any) {
-    const user = await this.userRepository.findOne({
-      where: { id: payload.sub },
-      select: ['id', 'email', 'username', 'role', 'isActive'],
-    });
-
-    if (!user || !user.isActive) {
-      throw new UnauthorizedException('账户已被禁用或不存在');
-    }
-
-    return {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      role: user.role,
+    console.log('=== JWT Strategy - validate START ===');
+    console.log('JWT Strategy - validate - payload:', JSON.stringify(payload));
+    console.log('JWT Strategy - validate - JWT_SECRET:', process.env.JWT_SECRET);
+    console.log('JWT Strategy - validate - payload.sub type:', typeof payload.sub);
+    console.log('JWT Strategy - validate - payload.sub value:', payload.sub);
+    
+    const user = {
+      id: payload.sub,
+      email: payload.email,
+      role: payload.role,
     };
+    
+    console.log('JWT Strategy - validate - returning user:', JSON.stringify(user));
+    console.log('=== JWT Strategy - validate END ===');
+    return user;
   }
 }

@@ -32,7 +32,7 @@ export class ClientGroup extends BaseEntityWithId {
     default: 0,
     comment: '排序序号',
   })
-  @Index('idx_active_sort')
+  @Index('idx_sort_order')
   sortOrder: number;
 
   @Column({
@@ -40,7 +40,7 @@ export class ClientGroup extends BaseEntityWithId {
     default: 1,
     comment: '是否激活',
   })
-  @Index('idx_active_sort')
+  @Index('idx_is_active')
   isActive: boolean;
 
   @Column({

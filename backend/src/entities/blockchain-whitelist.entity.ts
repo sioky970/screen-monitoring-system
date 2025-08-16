@@ -3,7 +3,7 @@ import { BaseEntity } from './base.entity';
 
 @Entity('blockchain_whitelist')
 export class BlockchainWhitelist extends BaseEntity {
-  @PrimaryGeneratedColumn('increment', { type: 'bigint' })
+  @PrimaryGeneratedColumn('increment')
   id: number;
 
   @Column({
@@ -26,7 +26,7 @@ export class BlockchainWhitelist extends BaseEntity {
     length: 20,
     comment: '地址类型（BTC/ETH/TRC20等）',
   })
-  @Index('idx_type_active')
+  @Index('idx_address_type')
   addressType: string;
 
   @Column({
@@ -59,7 +59,7 @@ export class BlockchainWhitelist extends BaseEntity {
   approvedBy: number;
 
   @Column({
-    type: 'timestamp',
+    type: 'datetime',
     nullable: true,
     comment: '审核时间',
   })
@@ -70,11 +70,11 @@ export class BlockchainWhitelist extends BaseEntity {
     default: 1,
     comment: '是否激活',
   })
-  @Index('idx_type_active')
+  @Index('idx_whitelist_active')
   isActive: boolean;
 
   @Column({
-    type: 'timestamp',
+    type: 'datetime',
     nullable: true,
     comment: '过期时间（可选）',
   })

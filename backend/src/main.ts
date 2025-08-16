@@ -6,7 +6,7 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
-import * as helmet from 'helmet';
+import helmet from 'helmet';
 import * as compression from 'compression';
 
 async function bootstrap() {
@@ -19,7 +19,13 @@ async function bootstrap() {
 
   // 跨域配置
   app.enableCors({
-    origin: configService.get('CORS_ORIGIN', '*'),
+    origin: [
+      'http://localhost:47827',
+      'http://127.0.0.1:47827',
+      'http://localhost:47830',
+      'http://127.0.0.1:47830',
+      configService.get('CORS_ORIGIN', '*')
+    ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
@@ -164,7 +170,7 @@ async function bootstrap() {
     });
   });
 
-  const port = configService.get('PORT', 47831);
+  const port = configService.get('PORT', 3000);
   await app.listen(port, '0.0.0.0');
   
   const nodeEnv = configService.get('NODE_ENV', 'development');
@@ -179,7 +185,7 @@ async function bootstrap() {
 │  🌐 API 地址: http://localhost:${port}/api          │
 │  ${!isProduction ? '📚 API 文档: http://localhost:' + port + '/api/docs' : '📚 API 文档: 生产环境下已禁用'}│
 │  💚 健康检查: http://localhost:${port}/health       │
-│  📡 WebSocket: ws://localhost:3002/monitor        │
+│  📡 WebSocket: ws://localhost:${configService.get('WS_PORT', 3005)}/monitor        │
 │  🔧 运行环境: ${nodeEnv}                              │
 │                                                    │
 │  🛠️  技术栈: NestJS + TypeScript + MySQL + Redis  │

@@ -26,26 +26,21 @@
           屏幕墙
         </a-menu-item>
         
-        <a-sub-menu key="admin" v-if="authStore.isAdmin">
+        <a-menu-item key="/admin/whitelist">
+          <template #icon>
+            <SafetyOutlined />
+          </template>
+          白名单管理
+        </a-menu-item>
+        <a-menu-item key="/admin/groups">
           <template #icon>
             <SettingOutlined />
           </template>
-          <template #title>系统管理</template>
-          
-          <a-menu-item key="/admin/users">
-            <template #icon>
-              <UserOutlined />
-            </template>
-            用户管理
-          </a-menu-item>
-          
-          <a-menu-item key="/admin/whitelist">
-            <template #icon>
-              <SafetyOutlined />
-            </template>
-            白名单管理
-          </a-menu-item>
-        </a-sub-menu>
+          分组管理
+        </a-menu-item>
+        
+        <!-- removed client-config menu item -->
+
       </a-menu>
     </a-layout-sider>
     
@@ -121,7 +116,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api/auth'
@@ -132,7 +127,7 @@ import {
   DashboardOutlined,
   DesktopOutlined,
   SettingOutlined,
-  UserOutlined,
+  ControlOutlined,
   SafetyOutlined,
   BellOutlined,
   LockOutlined,
@@ -211,8 +206,18 @@ const handleChangePassword = async () => {
 }
 
 onMounted(() => {
-  // 获取用户信息
-  authStore.fetchProfile()
+  // 检查token状态并获取用户信息
+  const token = localStorage.getItem('token')
+  console.log('MainLayout mounted - token存在:', !!token)
+  console.log('MainLayout mounted - authStore.isAuthenticated:', authStore.isAuthenticated)
+  
+  if (token) {
+    console.log('Token存在，获取用户信息')
+    authStore.fetchProfile()
+  } else {
+    console.log('Token不存在，跳过获取用户信息')
+  }
+  
   selectedKeys.value = [route.path]
 })
 

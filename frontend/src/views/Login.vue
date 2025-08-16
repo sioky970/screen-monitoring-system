@@ -3,7 +3,7 @@
     <div class="login-card">
       <div class="login-header">
         <h2>屏幕监控系统</h2>
-        <p>管理后台登录</p>
+        <p>管理员登录</p>
       </div>
       
       <a-form
@@ -52,14 +52,15 @@
       </a-form>
       
       <div class="login-footer">
-        <p>默认管理员账号：admin@example.com / admin123</p>
+        <p>管理员账号：admin@example.com / admin123</p>
+        <p class="note">仅限管理员访问</p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, nextTick } from 'vue'
 import { UserOutlined, LockOutlined } from '@ant-design/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
@@ -88,10 +89,23 @@ const loginRules = {
 const handleLogin = async () => {
   loading.value = true
   try {
+    console.log('开始登录...', loginForm.email)
     const success = await authStore.login(loginForm.email, loginForm.password)
+    console.log('登录结果:', success)
+    console.log('认证状态:', authStore.isAuthenticated)
+    
     if (success) {
-      router.push('/dashboard')
+      console.log('登录成功，准备跳转到 /dashboard')
+      // 使用 nextTick 确保状态更新完成后再跳转
+      await nextTick()
+      console.log('跳转前的认证状态:', authStore.isAuthenticated)
+      await router.push('/dashboard')
+      console.log('跳转完成')
+    } else {
+      console.log('登录失败')
     }
+  } catch (error) {
+    console.error('登录过程中出错:', error)
   } finally {
     loading.value = false
   }
@@ -143,5 +157,11 @@ const handleLogin = async () => {
 .login-footer p {
   color: #8b9197;
   font-size: 14px;
+}
+
+.login-footer .note {
+  color: #f56565;
+  font-size: 12px;
+  margin-top: 8px;
 }
 </style>

@@ -8,6 +8,12 @@ export class CreateClientDto {
   @MaxLength(50, { message: '客户端编号不能超过50个字符' })
   clientNumber: string;
 
+  @ApiProperty({ description: '客户端名称' })
+  @IsString()
+  @IsNotEmpty({ message: '客户端名称不能为空' })
+  @MaxLength(255, { message: '客户端名称不能超过255个字符' })
+  clientName: string;
+
   @ApiProperty({ description: '计算机名称' })
   @IsString()
   @IsNotEmpty({ message: '计算机名称不能为空' })
@@ -26,10 +32,7 @@ export class CreateClientDto {
   @MaxLength(20, { message: '客户端版本不能超过20个字符' })
   version?: string;
 
-  @ApiPropertyOptional({ description: '所属分组ID' })
-  @IsOptional()
-  @IsNumber()
-  groupId?: number;
+  // 分组ID由后端自动分配，不允许客户端指定
 
   @ApiPropertyOptional({ description: '备注' })
   @IsOptional()

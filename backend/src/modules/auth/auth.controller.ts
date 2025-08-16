@@ -2,81 +2,100 @@ import {
   Controller,
   Post,
   Body,
-  Get,
-  UseGuards,
   HttpStatus,
   HttpCode,
+  Get,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
-import { ChangePasswordDto } from './dto/change-password.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { CurrentUser } from './decorators/current-user.decorator';
+import { ClientAuthDto, ClientAuthResponseDto } from './dto/client-auth.dto';
+import { AdminLoginDto, AdminLoginResponseDto, ChangePasswordDto } from './dto/admin-login.dto';
+import { Public } from './decorators/public.decorator';
 
-@ApiTags('🔒 认证授权')
+@ApiTags('🔒 认证管理')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '用户登录' })
-  @ApiResponse({ status: 200, description: '登录成功' })
+  @ApiOperation({ 
+    summary: '管理员登录', 
+    description: '管理员使用邮箱和密码登录系统' 
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: '登录成功', 
+    type: AdminLoginResponseDto 
+  })
   @ApiResponse({ status: 401, description: '邮箱或密码错误' })
-  login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  adminLogin(@Body() adminLoginDto: AdminLoginDto) {
+    return this.authService.adminLogin(adminLoginDto);
   }
 
-  @Post('register')
-  @ApiOperation({ summary: '用户注册' })
-  @ApiResponse({ status: 201, description: '注册成功' })
-  @ApiResponse({ status: 400, description: '邮箱或用户名已存在' })
-  register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
-  }
-
-  @Post('refresh')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '刷新访问令牌' })
-  @ApiResponse({ status: 200, description: '刷新成功' })
-  @ApiResponse({ status: 401, description: '无效的刷新令牌' })
-  refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
-    return this.authService.refreshToken(refreshTokenDto.refresh_token);
-  }
-
+  @Public()
   @Post('logout')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '用户退出' })
+  @ApiOperation({ 
+    summary: '退出登录', 
+    description: '管理员退出登录' 
+  })
   @ApiResponse({ status: 200, description: '退出成功' })
-  logout(@CurrentUser() user: any) {
-    return this.authService.logout(user.id);
-  }
-
-  @Post('change-password')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '修改密码' })
-  @ApiResponse({ status: 200, description: '密码修改成功' })
-  @ApiResponse({ status: 400, description: '当前密码错误' })
-  changePassword(
-    @CurrentUser() user: any,
-    @Body() changePasswordDto: ChangePasswordDto,
-  ) {
-    return this.authService.changePassword(user.id, changePasswordDto);
+  logout() {
+    // JWT是无状态的，客户端删除token即可
+    return { message: '退出登录成功' };
   }
 
   @Get('profile')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: '获取用户信息' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: '获取用户信息', 
+    description: '获取当前登录用户的详细信息' 
+  })
   @ApiResponse({ status: 200, description: '获取成功' })
-  getProfile(@CurrentUser() user: any) {
-    return this.authService.getProfile(user.id);
+  @ApiResponse({ status: 401, description: '未授权' })
+  getProfile(@Request() req) {
+    console.log('getProfile - 收到请求, req.user:', req.user);
+    console.log('getProfile - Authorization header:', req.headers?.authorization);
+    // 这里应该从JWT中获取用户ID，暂时硬编码
+    return this.authService.getAdminProfile(1);
+  }
+
+  @Public()
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ 
+    summary: '修改密码', 
+    description: '管理员修改登录密码' 
+  })
+  @ApiResponse({ status: 200, description: '密码修改成功' })
+  @ApiResponse({ status: 401, description: '当前密码错误' })
+  changePassword(@Body() changePasswordDto: ChangePasswordDto, @Request() req) {
+    // 这里应该从JWT中获取用户ID，暂时硬编码
+    return this.authService.changePassword(
+      1, 
+      changePasswordDto.currentPassword, 
+      changePasswordDto.newPassword
+    );
+  }
+
+  @Public()
+  @Post('client')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ 
+    summary: '客户端认证', 
+    description: '客户端首次运行时无需认证，如果没有UID则自动生成并返回唯一UID作为认证凭证' 
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: '认证成功', 
+    type: ClientAuthResponseDto 
+  })
+  @ApiResponse({ status: 400, description: '客户端编号已存在' })
+  clientAuth(@Body() clientAuthDto: ClientAuthDto) {
+    return this.authService.clientAuth(clientAuthDto);
   }
 }

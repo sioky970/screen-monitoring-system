@@ -80,12 +80,7 @@
               查看屏幕墙
             </a-button>
             
-            <a-button size="large" @click="$router.push('/admin/users')" v-if="authStore.isAdmin">
-              <UserAddOutlined />
-              添加用户
-            </a-button>
-            
-            <a-button size="large" @click="$router.push('/admin/whitelist')" v-if="authStore.isOperator">
+            <a-button size="large" @click="$router.push('/admin/whitelist')">
               <PlusOutlined />
               添加白名单
             </a-button>
@@ -119,7 +114,6 @@
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { clientsApi } from '@/api/clients'
-import { usersApi } from '@/api/users'
 import { whitelistApi } from '@/api/whitelist'
 import dayjs from 'dayjs'
 import {
@@ -149,16 +143,15 @@ let updateTimer: NodeJS.Timeout | null = null
 const loadStats = async () => {
   try {
     // 并行加载统计数据
-    const [clientStats, userStats, whitelistStats] = await Promise.all([
+    const [clientStats, whitelistStats] = await Promise.all([
       clientsApi.getClientStats().catch(() => ({ totalClients: 0, onlineClients: 0 })),
-      usersApi.getStats().catch(() => ({ totalUsers: 0 })),
       whitelistApi.getStats().catch(() => ({ whitelistCount: 0 }))
     ])
     
     Object.assign(stats, {
       ...clientStats,
-      ...userStats,
       ...whitelistStats,
+      totalUsers: 1, // 固定为管理员用户数
       todayAlerts: 8 // 模拟数据
     })
     

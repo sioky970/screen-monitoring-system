@@ -4,26 +4,28 @@ import { Client } from './client.entity';
 
 @Entity('client_online_logs')
 export class ClientOnlineLog extends BaseEntity {
-  @PrimaryGeneratedColumn('increment', { type: 'bigint' })
+  @PrimaryGeneratedColumn('increment')
   id: number;
 
   @Column({
-    type: 'char',
+    type: 'varchar',
     length: 36,
+    name: 'client_id',
     comment: '客户端ID',
   })
-  @Index('idx_client_time')
+  @Index('idx_online_client_id')
   clientId: string;
 
   @Column({
-    type: 'timestamp',
+    type: 'datetime',
     comment: '上线时间',
+    default: () => 'CURRENT_TIMESTAMP',
   })
-  @Index('idx_client_time')
+  @Index('idx_online_time')
   onlineTime: Date;
 
   @Column({
-    type: 'timestamp',
+    type: 'datetime',
     nullable: true,
     comment: '下线时间',
   })
@@ -57,6 +59,6 @@ export class ClientOnlineLog extends BaseEntity {
   @ManyToOne(() => Client, (client) => client.onlineLogs, {
     onDelete: 'CASCADE',
   })
-  @JoinColumn({ name: 'clientId' })
+  @JoinColumn({ name: 'client_id' })
   client: Client;
 }

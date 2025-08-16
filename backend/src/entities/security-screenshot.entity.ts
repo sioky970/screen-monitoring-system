@@ -14,19 +14,21 @@ export enum AlertStatus {
   CONFIRMED = 'confirmed',
   FALSE_POSITIVE = 'false_positive',
   IGNORED = 'ignored',
+  RESOLVED = 'resolved',
 }
 
 @Entity('security_screenshots')
 export class SecurityScreenshot extends BaseEntity {
-  @PrimaryGeneratedColumn('increment', { type: 'bigint' })
+  @PrimaryGeneratedColumn('increment')
   id: number;
 
   @Column({
-    type: 'char',
+    type: 'varchar',
     length: 36,
+    name: 'client_id',
     comment: '客户端ID',
   })
-  @Index('idx_client_time')
+  @Index('idx_screenshot_client_id')
   clientId: string;
 
   @Column({
@@ -38,10 +40,11 @@ export class SecurityScreenshot extends BaseEntity {
   alertId: string;
 
   @Column({
-    type: 'timestamp',
+    type: 'datetime',
     comment: '截图时间',
+    default: () => 'CURRENT_TIMESTAMP',
   })
-  @Index('idx_client_time')
+  @Index('idx_screenshot_time')
   screenshotTime: Date;
 
   @Column({
@@ -101,7 +104,7 @@ export class SecurityScreenshot extends BaseEntity {
     length: 20,
     comment: '地址类型（BTC/ETH/TRC20等）',
   })
-  @Index('idx_address_type')
+  @Index('idx_ss_address_type')
   addressType: string;
 
   @Column({
@@ -111,12 +114,12 @@ export class SecurityScreenshot extends BaseEntity {
   clipboardContent: string;
 
   @Column({
-    type: 'enum',
-    enum: RiskLevel,
+    type: 'varchar',
+    length: 20,
     default: RiskLevel.HIGH,
     comment: '风险等级',
   })
-  @Index('idx_risk_status')
+  @Index('idx_risk_level')
   riskLevel: RiskLevel;
 
   @Column({
@@ -135,7 +138,7 @@ export class SecurityScreenshot extends BaseEntity {
   reviewedBy: number;
 
   @Column({
-    type: 'timestamp',
+    type: 'datetime',
     nullable: true,
     comment: '处理时间',
   })
@@ -149,18 +152,18 @@ export class SecurityScreenshot extends BaseEntity {
   reviewNote: string;
 
   @Column({
-    type: 'enum',
-    enum: AlertStatus,
+    type: 'varchar',
+    length: 20,
     default: AlertStatus.PENDING,
     comment: '告警状态',
   })
-  @Index('idx_risk_status')
+  @Index('idx_alert_status')
   alertStatus: AlertStatus;
 
   // 关联关系
   @ManyToOne(() => Client, (client) => client.securityScreenshots, {
     onDelete: 'CASCADE',
   })
-  @JoinColumn({ name: 'clientId' })
+  @JoinColumn({ name: 'client_id' })
   client: Client;
 }

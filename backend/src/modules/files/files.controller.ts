@@ -1,6 +1,7 @@
 import { Controller, Post, UseInterceptors, UploadedFile, Get, Param, Delete } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { Public } from '../auth/decorators/public.decorator';
 import { FilesService } from './files.service';
 
 @ApiTags('📁 文件管理')
@@ -27,6 +28,7 @@ export class FilesController {
     return this.filesService.uploadFile(file);
   }
 
+  @Public()
   @Get(':key/url')
   @ApiOperation({ summary: '获取文件访问URL' })
   getFileUrl(@Param('key') key: string) {

@@ -1,7 +1,8 @@
 import { IsOptional, IsString, IsEnum, IsNumber, Min, Max, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { AlertType, AlertStatus } from '../../../entities/security-screenshot.entity';
+import { AlertStatus } from '../../../entities/security-screenshot.entity';
+import { AlertType } from './create-security-alert.dto';
 
 export class QuerySecurityAlertsDto {
   @ApiPropertyOptional({ description: '页码', default: 1 })

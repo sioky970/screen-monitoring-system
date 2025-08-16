@@ -1,4 +1,6 @@
 import { IsString, IsNotEmpty, IsOptional, MaxLength } from 'class-validator';
+import { Matches } from 'class-validator';
+
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateClientGroupDto {
@@ -13,4 +15,10 @@ export class CreateClientGroupDto {
   @IsString()
   @MaxLength(500, { message: '分组描述不能超过500个字符' })
   description?: string;
+
+  @ApiPropertyOptional({ description: '分组颜色（#RRGGBB）', default: '#1890ff' })
+  @IsOptional()
+  @IsString()
+  @Matches(/^#[0-9a-fA-F]{6}$/i, { message: '颜色格式应为#RRGGBB' })
+  color?: string;
 }

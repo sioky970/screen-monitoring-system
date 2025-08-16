@@ -1,5 +1,4 @@
-import { Entity, Column, Index, ManyToOne, JoinColumn, OneToMany, PrimaryColumn } from 'typeorm';
-import { BaseEntity } from './base.entity';
+import { Entity, Column, Index, ManyToOne, JoinColumn, OneToMany, PrimaryColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { ClientGroup } from './client-group.entity';
 import { SecurityScreenshot } from './security-screenshot.entity';
 import { ClientOnlineLog } from './client-online-log.entity';
@@ -12,15 +11,16 @@ export enum ClientStatus {
 }
 
 @Entity('clients')
-export class Client extends BaseEntity {
+export class Client {
   @PrimaryColumn({
-    type: 'char',
+    type: 'varchar',
     length: 36,
     comment: '客户端UUID',
   })
   id: string;
 
   @Column({
+    name: 'client_number',
     type: 'varchar',
     length: 50,
     unique: true,
@@ -30,6 +30,7 @@ export class Client extends BaseEntity {
   clientNumber: string;
 
   @Column({
+    name: 'client_name',
     type: 'varchar',
     length: 255,
     comment: '客户端名称',
@@ -37,13 +38,15 @@ export class Client extends BaseEntity {
   clientName: string;
 
   @Column({
+    name: 'group_id',
     type: 'int',
     comment: '所属分组ID',
   })
-  @Index('idx_group_status')
+  @Index('idx_group_id')
   groupId: number;
 
   @Column({
+    name: 'computer_name',
     type: 'varchar',
     length: 255,
     nullable: true,
@@ -60,6 +63,7 @@ export class Client extends BaseEntity {
   username: string;
 
   @Column({
+    name: 'ip_address',
     type: 'varchar',
     length: 45,
     nullable: true,
@@ -68,6 +72,7 @@ export class Client extends BaseEntity {
   ipAddress: string;
 
   @Column({
+    name: 'mac_address',
     type: 'varchar',
     length: 17,
     nullable: true,
@@ -100,16 +105,17 @@ export class Client extends BaseEntity {
   screenResolution: string;
 
   @Column({
-    type: 'enum',
-    enum: ClientStatus,
+    type: 'varchar',
+    length: 20,
     default: ClientStatus.OFFLINE,
     comment: '状态',
   })
-  @Index('idx_group_status')
+  @Index('idx_client_status')
   status: ClientStatus;
 
   @Column({
-    type: 'timestamp',
+    name: 'last_heartbeat',
+    type: 'datetime',
     nullable: true,
     comment: '最后心跳时间',
   })
@@ -117,14 +123,15 @@ export class Client extends BaseEntity {
   lastHeartbeat: Date;
 
   @Column({
-    type: 'timestamp',
+    name: 'first_connect',
+    type: 'datetime',
     nullable: true,
     comment: '首次连接时间',
   })
   firstConnect: Date;
 
   @Column({
-    type: 'bigint',
+    type: 'integer',
     default: 0,
     comment: '总在线时长（秒）',
   })
@@ -146,7 +153,7 @@ export class Client extends BaseEntity {
 
   // 关联关系
   @ManyToOne(() => ClientGroup, (group) => group.clients)
-  @JoinColumn({ name: 'groupId' })
+  @JoinColumn({ name: 'group_id' })
   group: ClientGroup;
 
   @OneToMany(() => SecurityScreenshot, (screenshot) => screenshot.client)
@@ -154,4 +161,14 @@ export class Client extends BaseEntity {
 
   @OneToMany(() => ClientOnlineLog, (log) => log.client)
   onlineLogs: ClientOnlineLog[];
+
+  @CreateDateColumn({
+    comment: '创建时间',
+  })
+  createdAt: Date;
+
+  @UpdateDateColumn({
+    comment: '更新时间',
+  })
+  updatedAt: Date;
 }

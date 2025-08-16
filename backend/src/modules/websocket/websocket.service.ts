@@ -130,6 +130,30 @@ export class WebSocketService {
     });
   }
 
+  // ========== 客户端定向通知 ==========
+
+  async sendToClient(clientId: string, event: string, data: any): Promise<void> {
+    if (!this.server) {
+      this.logger.warn('WebSocket server not initialized');
+      return;
+    }
+
+    const payload = {
+      ...data,
+      timestamp: data.timestamp || new Date(),
+    };
+
+    // 发送到客户端房间
+    this.server.to(`client-${clientId}`).emit(event, payload);
+    this.logger.debug(`Event '${event}' sent to client ${clientId}`);
+  }
+
+  async sendToClients(clientIds: string[], event: string, data: any): Promise<void> {
+    for (const clientId of clientIds) {
+      await this.sendToClient(clientId, event, data);
+    }
+  }
+
   // ========== 广播通知 ==========
 
   broadcast(event: string, data: any) {

@@ -1,0 +1,62 @@
+# 测试用区块链地址
+# 这些地址用于测试违规检测功能
+
+## Bitcoin (BTC) 地址
+1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa
+3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
+bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
+
+## Ethereum (ETH) 地址
+0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b
+0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe
+0x8ba1f109551bD432803012645Hac136c
+
+## USDT (Tether) 地址
+TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
+TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE
+
+## Litecoin (LTC) 地址
+LTC1qw508d6qejxtdg4y5r3zarvary0c5xw7k
+LhyLNfBkoNdDVGxFXkzNMuQcsiZkgV
+
+## Dogecoin (DOGE) 地址
+DH5yaieqoZN36fDVciNyRueRGvGLR3mr7L
+DDogepartyxxxxxxxxxxxxxxxxxxw1dfzr
+
+## Binance Smart Chain (BSC) 地址
+0x10ED43C718714eb63d5aA57B78B54704E256024E
+0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F
+
+## Polygon (MATIC) 地址
+0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619
+0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174
+
+## Solana (SOL) 地址
+11111111111111111111111111111112
+So11111111111111111111111111111111111111112
+EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+
+## Cardano (ADA) 地址
+addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3n0d3vllmyqwsx5wktcd8cc3sq835lu7drv2xwl2wywfgse35a3x
+addr1q8la8h3n2cq0ml9x9rpg9j8s3usrr8m2js622xhxpufs7g2sj922xhxkn6twlq2wn4q50q352annk3903tj00hcstrqk8s
+
+## Tron (TRX) 地址
+TLa2f6VPqDgRE67v1736s7bJ8Ray5wYjU7
+TWd4WrZ9wn84f5x9nFjjBjn6yqtZpXPyjJ
+
+## Monero (XMR) 地址
+4AdUndXHHZ6cfufTMvppY6JwXNouMBzSkbLYfpAV5Usx3skxNgYeYTRj5UzqtReoS44qo9mtmXCqY45DJ852K5Jv2684Rge
+
+## Ripple (XRP) 地址
+rN7n7otQDd6FczFgLdSqtcsAUxDkw6fzRH
+rLNaPoKeeBjZe2qs6x52yVPZpZ8td4dc6w
+
+## 混合测试文本
+这是一个包含比特币地址的文本：1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa，请注意这个地址。
+以太坊地址示例：0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b
+USDT地址：TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
+
+## 注意事项
+- 这些地址仅用于测试目的
+- 请勿向这些地址发送任何资金
+- 部分地址可能是示例地址，不一定是真实有效的地址

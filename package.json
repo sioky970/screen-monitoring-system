@@ -1,0 +1,25 @@
+{
+  "name": "screen-monitoring-simulator",
+  "version": "1.0.0",
+  "description": "屏幕监控系统模拟客户端",
+  "main": "simulate-client.js",
+  "scripts": {
+    "start": "node simulate-client.js",
+    "simulate": "node simulate-client.js"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.7.2",
+    "axios": "^1.5.0",
+    "form-data": "^4.0.0",
+    "uuid": "^9.0.0"
+  },
+  "keywords": [
+    "websocket",
+    "simulation",
+    "client",
+    "screenshot",
+    "monitoring"
+  ],
+  "author": "Screen Monitoring System",
+  "license": "MIT"
+}
