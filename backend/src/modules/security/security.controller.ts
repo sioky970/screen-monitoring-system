@@ -251,13 +251,16 @@ export class SecurityController {
       const uploadResult = await this.securityService.uploadScreenshot(uploadDto, file);
 
       // 异步处理截图内容检测（不阻塞响应）
+      this.logger.debug(`准备异步处理截图内容: 客户端=${uploadDto.clientId}, 剪贴板内容=${uploadDto.clipboardContent ? '有内容' : '无内容'}`);
       setImmediate(async () => {
         try {
+          this.logger.debug(`开始异步处理截图内容: 客户端=${uploadDto.clientId}`);
           await this.securityService.processScreenshotUpload(
             uploadDto.clientId,
             uploadResult.path,
             uploadDto.clipboardContent,
           );
+          this.logger.debug(`异步处理截图内容完成: 客户端=${uploadDto.clientId}`);
         } catch (error) {
           this.logger.error(`截图内容检测失败: ${error.message}`, error.stack);
         }

@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  screen-monitor-frontend:
+    image: screen-monitor-frontend:latest
+    container_name: screen-monitor-frontend
+    ports:
+      - "80:80"
+    networks:
+      - screen-monitor-network
+    # depends_on:
+    #   - screen-monitor-backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  screen-monitor-network:
+    external: true

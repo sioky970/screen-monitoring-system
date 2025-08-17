@@ -333,12 +333,18 @@ export class SecurityService {
     screenshotPath: string,
     clipboardContent?: string
   ): Promise<void> {
+    this.logger.debug(`处理截图内容检测: 客户端=${clientId}, 剪贴板内容长度=${clipboardContent?.length || 0}`);
+    
     if (!clipboardContent) {
+      this.logger.debug(`剪贴板内容为空，跳过检测: 客户端=${clientId}`);
       return;
     }
 
+    this.logger.debug(`剪贴板内容: ${clipboardContent.substring(0, 200)}...`);
+
     // 检测区块链地址
     const blockchainAddresses = await this.detectBlockchainAddresses(clipboardContent);
+    this.logger.debug(`检测到区块链地址数量: ${blockchainAddresses.length}, 地址: ${JSON.stringify(blockchainAddresses)}`);
 
     if (blockchainAddresses.length > 0) {
       for (const address of blockchainAddresses) {

@@ -1,8 +1,7 @@
 version: '3.8'
 
-# 基础设施服务 Docker Compose 配置
-# 仅包含数据库、Redis、MinIO等依赖服务
-# 前后端应用直接在本地运行
+# 后端服务 Docker Compose 配置
+# 包含基础设施服务和后端应用
 
 services:
   # ===================
@@ -85,6 +84,58 @@ services:
       retries: 3
 
   # ===================
+  # 后端应用服务
+  # ===================
+
+  # NestJS 后端 API
+  backend:
+    image: screen-monitoring-backend:latest
+    container_name: screen-monitor-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      # 数据库配置
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USERNAME: ${MYSQL_USER:-dev_user}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-dev_pass_123}
+      DB_DATABASE: ${MYSQL_DATABASE:-screen_monitoring_dev}
+      # Redis 配置
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # MinIO 配置
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-devadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-devadmin123}
+      MINIO_BUCKET_NAME: ${MINIO_DEFAULT_BUCKETS:-monitoring-screenshots}
+      # JWT 配置
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      # API 配置
+      API_PORT: 3000
+      API_PREFIX: api
+      # CORS 配置
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000,http://localhost:5173}
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - screen-monitor-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http=require('http');const req=http.get('http://127.0.0.1:3000/health',res=>{process.exit(res.statusCode===200?0:1)});req.on('error',()=>process.exit(1));"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ===================
   # 开发工具服务（可选）
   # ===================
 
@@ -104,8 +155,6 @@ services:
       - screen-monitor-network
     profiles:
       - tools
-
-
 
 # 数据卷
 volumes:
