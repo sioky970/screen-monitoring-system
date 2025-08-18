@@ -21,20 +21,26 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
     this.redisClient.on('ready', () => {
       this.logger.log('Redis客户端准备就绪');
+      this.isConnected = true;
     });
 
     this.redisClient.on('error', (error) => {
-      this.logger.error('Redis连接错误:', error.message);
+      // 减少错误日志的频率，避免日志刷屏
+      if (error.message.includes('Socket closed unexpectedly')) {
+        this.logger.debug('Redis连接意外关闭，正在重连...');
+      } else {
+        this.logger.error('Redis连接错误:', error.message);
+      }
       this.isConnected = false;
     });
 
     this.redisClient.on('end', () => {
-      this.logger.warn('Redis连接已断开');
+      this.logger.debug('Redis连接已断开');
       this.isConnected = false;
     });
 
     this.redisClient.on('reconnecting', () => {
-      this.logger.log('Redis正在重连...');
+      this.logger.debug('Redis正在重连...');
     });
   }
 

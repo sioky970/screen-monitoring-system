@@ -110,9 +110,14 @@ class SystemInfoCollector:
     def get_client_number() -> str:
         """生成客户端编号"""
         try:
+            import time
+            import random
+            
             computer_name = SystemInfoCollector.get_computer_name()
-            username = SystemInfoCollector.get_username()
-            return f"{computer_name}-{username}"
+            timestamp = str(int(time.time()))[-6:]  # 取时间戳后6位
+            random_suffix = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=4))
+            
+            return f"CLIENT-{computer_name}-{timestamp}-{random_suffix}"
         except Exception:
             import time
             return f"CLIENT-{int(time.time())}"

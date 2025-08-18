@@ -56,8 +56,7 @@ class ClientIdManager:
     def get_client_uid(self) -> str:
         """获取客户端UID
         
-        如果本地存在有效的客户端UID，则使用本地UID进行认证
-        否则进行首次注册（UID为空），服务端生成UID并返回
+        尝试从本地文件加载UID，如果不存在则生成新的UID并进行注册
         
         Returns:
             客户端UID
@@ -66,31 +65,24 @@ class ClientIdManager:
         local_client_uid = self._load_local_client_uid()
         
         if local_client_uid:
-            # 使用本地UID进行认证
-            auth_result = self._authenticate_client(local_client_uid)
-            if auth_result and auth_result.get('data', {}).get('uid'):
-                self.logger.info(f"使用本地客户端UID认证成功: {local_client_uid}")
-                return auth_result['data']['uid']
-            else:
-                self.logger.warning("本地客户端UID认证失败，将重新注册")
+            self.logger.info(f"从本地文件加载客户端UID: {local_client_uid}")
+            return local_client_uid
         
-        # 进行首次注册（UID为空）
-        auth_result = self._authenticate_client(None)
-        if auth_result and auth_result.get('data', {}).get('uid'):
-            new_uid = auth_result['data']['uid']
+        # 生成新的UID
+        new_uid = str(uuid.uuid4())
+        
+        # 使用新UID进行客户端注册
+        register_result = self._authenticate_client(new_uid)
+        if register_result and register_result.get('data', {}).get('uid'):
             # 保存到本地文件
             self._save_local_client_uid(new_uid)
-            if auth_result.get('data', {}).get('isNewClient'):
-                self.logger.info(f"客户端首次注册成功，获得UID: {new_uid}")
-            else:
-                self.logger.info(f"客户端认证成功，UID: {new_uid}")
+            self.logger.info(f"客户端注册成功，UID: {new_uid}")
             return new_uid
         else:
-            # 认证失败，生成临时UID并保存
-            temp_uid = str(uuid.uuid4())
-            self._save_local_client_uid(temp_uid)
-            self.logger.warning(f"客户端认证失败，使用临时UID: {temp_uid}")
-            return temp_uid
+            # 注册失败，仍然保存UID以便下次使用
+            self._save_local_client_uid(new_uid)
+            self.logger.warning(f"客户端注册失败，但已保存UID: {new_uid}")
+            return new_uid
     
     def _load_local_client_uid(self) -> Optional[str]:
         """从本地文件加载客户端UID
@@ -132,58 +124,58 @@ class ClientIdManager:
             self.logger.error(f"保存客户端UID失败: {e}")
             return False
     
-    def _authenticate_client(self, client_uid: Optional[str]) -> Optional[Dict]:
-        """客户端认证
+    def _authenticate_client(self, client_uid: str) -> Optional[Dict]:
+        """客户端注册
         
         Args:
-            client_uid: 客户端UID，首次注册时为None
+            client_uid: 客户端UID，将作为clientNumber使用
         
         Returns:
-            认证结果字典，包含uid、isNewClient等信息
+            注册结果字典，包含id、clientNumber等信息
         """
         try:
-            url = f"{self.config.server.api_base_url}/auth/client"
+            url = f"{self.config.server.api_base_url}/clients"
             
-            # 构建认证数据
-            auth_data = {
-                'clientNumber': self.system_info['clientNumber'],
-                'clientName': self.config.client.name,
+            # 构建注册数据，使用UID作为clientNumber
+            register_data = {
+                'clientNumber': client_uid,  # 使用UID作为客户端编号
+                'clientName': f"客户端-{client_uid[:8]}",  # 使用UID前8位作为客户端名称
                 'computerName': self.system_info['computerName'],
-                'username': self.system_info['username'],
-                'ipAddress': self.system_info['ipAddress'],
-                'macAddress': self.system_info['macAddress'],
-                'osVersion': self.system_info['osVersion'],
-                'clientVersion': self.config.client.version,
-                'screenResolution': self.system_info['screenResolution']
+                'os': self.system_info['osVersion'],
+                'version': self.config.client.version,
+                'remark': f"Python客户端 - {self.system_info['username']}@{self.system_info['computerName']}"
             }
-            
-            # 如果有UID，则添加到请求中
-            if client_uid:
-                auth_data['uid'] = client_uid
             
             response = self.session.post(
                 url, 
-                json=auth_data, 
+                json=register_data,
+                headers={'Content-Type': 'application/json'},
                 timeout=self.config.server.timeout
             )
             
-            if response.status_code == 200:
+            if response.status_code == 200 or response.status_code == 201:
                 result = response.json()
-                self.logger.info(f"客户端认证成功: {result.get('message', '')}")
-                self.logger.debug(f"认证响应数据: {result}")
-                return result
+                self.logger.info(f"客户端注册成功: {result.get('clientName', '')}")
+                self.logger.debug(f"注册响应数据: {result}")
+                # 将服务器返回的id作为客户端UID
+                return {
+                    'data': {
+                        'uid': result.get('id'),
+                        'isNewClient': True
+                    }
+                }
             else:
-                self.logger.warning(f"客户端认证失败: HTTP {response.status_code} - {response.text}")
+                self.logger.warning(f"客户端注册失败: HTTP {response.status_code} - {response.text}")
                 return None
                 
         except requests.exceptions.Timeout:
-            self.logger.warning("客户端认证超时")
+            self.logger.warning("客户端注册超时")
             return None
         except requests.exceptions.ConnectionError:
-            self.logger.warning("客户端认证连接失败")
+            self.logger.warning("客户端注册连接失败")
             return None
         except Exception as e:
-            self.logger.error(f"客户端认证异常: {e}")
+            self.logger.error(f"客户端注册异常: {e}")
             return None
     
     def get_client_info(self) -> Dict[str, str]:

@@ -100,6 +100,7 @@ services:
       DB_USERNAME: ${MYSQL_USER:-dev_user}
       DB_PASSWORD: ${MYSQL_PASSWORD:-dev_pass_123}
       DB_DATABASE: ${MYSQL_DATABASE:-screen_monitoring_dev}
+      DB_SYNCHRONIZE: "true"
       # Redis 配置
       REDIS_HOST: redis
       REDIS_PORT: 6379

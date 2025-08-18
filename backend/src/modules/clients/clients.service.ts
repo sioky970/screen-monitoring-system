@@ -558,7 +558,7 @@ export class ClientsService implements OnModuleInit, OnModuleDestroy {
   private async logClientOnlineStatus(clientId: string, status: ClientStatus): Promise<void> {
     const log = this.clientOnlineLogRepository.create({
       clientId,
-      onlineTime: status === ClientStatus.ONLINE ? new Date() : null,
+      onlineTime: new Date(), // 始终设置onlineTime，避免null值
       offlineTime: status === ClientStatus.ONLINE ? null : new Date(),
     });
 

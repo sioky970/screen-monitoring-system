@@ -1,9 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_FILTER } from '@nestjs/core';
 
 // 配置
 import { typeormConfig } from './config/typeorm.config';
@@ -23,6 +23,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { FilesModule } from './modules/files/files.module';
 import { WebSocketModule } from './modules/websocket/websocket.module';
 import { JwtGlobalAuthGuard } from './modules/auth/guards/jwt-global.guard';
+import { StaticFilterMiddleware } from './common/middleware/static-filter.middleware';
+import { LogFilterExceptionFilter } from './common/filters/log-filter.filter';
 
 @Module({
   imports: [
@@ -81,6 +83,17 @@ import { JwtGlobalAuthGuard } from './modules/auth/guards/jwt-global.guard';
       provide: APP_GUARD,
       useClass: JwtGlobalAuthGuard,
     },
+    {
+      provide: APP_FILTER,
+      useClass: LogFilterExceptionFilter,
+    },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // 注册静态文件过滤中间件，应用到所有路由
+    consumer
+      .apply(StaticFilterMiddleware)
+      .forRoutes('*');
+  }
+}
