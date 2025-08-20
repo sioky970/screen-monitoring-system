@@ -16,114 +16,15 @@
       <a-tabs v-model:activeKey="activeTab" type="card">
         <!-- 基本信息标签页 -->
         <a-tab-pane key="info" tab="基本信息">
-          <!-- 客户端基本信息 -->
-          <a-descriptions
-            :column="isMobile ? 1 : 2"
-            size="small"
-            bordered
-            class="client-info"
-          >
-        <a-descriptions-item label="计算机名称">
-          <span class="info-value">{{ client.computerName }}</span>
-        </a-descriptions-item>
-
-        <a-descriptions-item label="客户端编号">
-          <span class="info-value">{{ client.clientNumber }}</span>
-        </a-descriptions-item>
-
-        <a-descriptions-item label="状态">
-          <a-badge
-            :status="statusBadge.status"
-            :text="statusBadge.text"
-            :color="statusBadge.color"
+          <ClientBasicInfo
+            :client="client"
+            :client-groups="clientGroups"
+            :saving="isSaving"
+            :deleting="isDeleting"
+            @save="handleSaveClient"
+            @delete="handleDeleteClient"
+            @show-screenshot="handleShowScreenshot"
           />
-        </a-descriptions-item>
-
-        <a-descriptions-item label="最后在线时间">
-          <span class="info-value">{{ lastSeenText }}</span>
-        </a-descriptions-item>
-      </a-descriptions>
-
-      <!-- 统计信息 -->
-      <div class="stats-section">
-        <a-row :gutter="16">
-          <a-col :span="24">
-            <a-statistic
-              title="总违规次数"
-              :value="client.alertCount || 0"
-              :value-style="{ color: client.alertCount > 0 ? '#ff4d4f' : '#3f8600' }"
-            />
-          </a-col>
-        </a-row>
-      </div>
-
-      <!-- 操作按钮 -->
-      <div class="actions-section">
-        <a-space>
-          <a-button
-            type="primary"
-            @click="handleViewScreenshot"
-            :disabled="!hasScreenshot"
-          >
-            <template #icon>
-              <PictureOutlined />
-            </template>
-            查看截图
-          </a-button>
-          
-          <a-button
-            type="default"
-            @click="handleRefreshData"
-            :loading="isRefreshing"
-          >
-            <template #icon>
-              <ReloadOutlined />
-            </template>
-            刷新数据
-          </a-button>
-          
-          <a-popconfirm
-            title="确定要强制下线该客户端吗？"
-            ok-text="确定"
-            cancel-text="取消"
-            @confirm="handleForceOffline"
-          >
-            <a-button type="dashed" danger>
-              <template #icon>
-                <PoweroffOutlined />
-              </template>
-              强制下线
-            </a-button>
-          </a-popconfirm>
-          
-          <a-popconfirm
-            title="确定要删除该客户端吗？删除后将无法恢复！"
-            ok-text="确定删除"
-            cancel-text="取消"
-            @confirm="handleDeleteClient"
-          >
-            <a-button type="primary" danger :loading="isDeleting">
-              <template #icon>
-                <DeleteOutlined />
-              </template>
-              删除客户端
-            </a-button>
-          </a-popconfirm>
-        </a-space>
-      </div>
-
-          <!-- 最近截图预览 -->
-          <div v-if="hasScreenshot" class="screenshot-preview">
-            <h4>最新截图</h4>
-            <div class="screenshot-container">
-              <img
-                :src="client.latestScreenshotUrl"
-                :alt="`${client.computerName} 最新截图`"
-                class="screenshot-image"
-                @click="handleViewScreenshot"
-              />
-            </div>
-          </div>
         </a-tab-pane>
 
         <!-- 违规事件标签页 -->
@@ -233,6 +134,7 @@ import type { SecurityAlert, AlertStatus, RiskLevel } from '@/types/security'
 import { clientsApi } from '@/api/clients'
 import { securityApi } from '@/api/security'
 import ViolationScreenshotModal from '@/components/ViolationScreenshotModal.vue'
+import ClientBasicInfo from './ClientBasicInfo.vue'
 
 interface Props {
   visible: boolean
@@ -245,6 +147,8 @@ interface Emits {
   'refresh-data': [clientId: string]
   'force-offline': [clientId: string]
   'client-deleted': [clientId: string]
+  'client-updated': [clientId: string]
+  'show-screenshot': [url: string, title: string]
 }
 
 const props = defineProps<Props>()
@@ -253,7 +157,9 @@ const emit = defineEmits<Emits>()
 // 响应式状态
 const isRefreshing = ref(false)
 const isDeleting = ref(false)
+const isSaving = ref(false)
 const screenWidth = ref(window.innerWidth)
+const clientGroups = ref([])
 const activeTab = ref('info')
 const violations = ref<SecurityAlert[]>([])
 const violationsLoading = ref(false)
@@ -340,7 +246,7 @@ const handleForceOffline = () => {
 
 const handleDeleteClient = async () => {
   if (!props.client) return
-  
+
   isDeleting.value = true
   try {
     await clientsApi.deleteClient(props.client.id)
@@ -355,14 +261,47 @@ const handleDeleteClient = async () => {
   }
 }
 
+// 保存客户端信息
+const handleSaveClient = async (clientData: any) => {
+  if (!props.client) return
+
+  isSaving.value = true
+  try {
+    await clientsApi.updateClient(props.client.id, clientData)
+    message.success('客户端信息更新成功')
+    emit('client-updated', props.client.id)
+  } catch (error) {
+    console.error('更新客户端失败:', error)
+    message.error('更新客户端失败，请重试')
+  } finally {
+    isSaving.value = false
+  }
+}
+
+// 显示截图
+const handleShowScreenshot = (url: string, title: string) => {
+  emit('show-screenshot', url, title)
+}
+
 // 监听窗口大小变化
 const handleResize = () => {
   screenWidth.value = window.innerWidth
 }
 
+// 加载客户端分组
+const loadClientGroups = async () => {
+  try {
+    const response = await clientsApi.getGroups()
+    clientGroups.value = response || []
+  } catch (error) {
+    console.error('加载客户端分组失败:', error)
+  }
+}
+
 // 生命周期
 onMounted(() => {
   window.addEventListener('resize', handleResize)
+  loadClientGroups()
 })
 
 onUnmounted(() => {

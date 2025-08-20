@@ -142,8 +142,9 @@
     <ClientDetailModal
       v-model:visible="clientDetailVisible"
       :client="selectedClient"
-      @save="handleClientSave"
+      @client-updated="handleClientUpdated"
       @client-deleted="handleClientDelete"
+      @show-screenshot="handleShowScreenshot"
     />
 
     <!-- 截图查看弹窗 -->
@@ -322,6 +323,20 @@ const handleClientDelete = async (clientId: string) => {
   } catch (error) {
     message.error('删除失败')
   }
+}
+
+const handleClientUpdated = async (clientId: string) => {
+  try {
+    await refreshClients()
+    message.success('客户端信息更新成功')
+  } catch (error) {
+    message.error('刷新客户端列表失败')
+  }
+}
+
+const handleShowScreenshot = (url: string, title: string) => {
+  screenshotUrl.value = url
+  screenshotModalVisible.value = true
 }
 
 // 生命周期
