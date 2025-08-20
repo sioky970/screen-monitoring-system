@@ -5,8 +5,8 @@ export interface Client {
   status: 'online' | 'offline' | 'error' | 'installing'
   lastSeen?: string
   lastHeartbeat?: string
-  group?: string
-  groupId?: string
+  group?: ClientGroup
+  groupId?: number
   alertCount?: number
   latestScreenshotUrl?: string
   isActive?: boolean

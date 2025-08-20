@@ -21,11 +21,22 @@
         </a-col>
         <a-col :span="12">
           <a-form-item label="分组">
-            <a-select v-model:value="editForm.groupId" placeholder="选择分组">
-              <a-select-option v-for="group in clientGroups" :key="group.id" :value="group.id">
-                {{ group.name }}
-              </a-select-option>
-            </a-select>
+            <div class="group-info">
+              <div class="current-group">
+                <span class="label">当前分组：</span>
+                <a-tag color="blue">{{ currentGroupName }}</a-tag>
+              </div>
+              <a-select
+                v-model:value="editForm.groupId"
+                placeholder="选择新分组"
+                style="margin-top: 8px;"
+                allow-clear
+              >
+                <a-select-option v-for="group in clientGroups" :key="group.id" :value="group.id">
+                  {{ group.name }}
+                </a-select-option>
+              </a-select>
+            </div>
           </a-form-item>
         </a-col>
         <a-col :span="12">
@@ -88,6 +99,7 @@ interface Client {
   lastSeen?: string
   lastHeartbeat?: string
   group?: { id: number; name: string }
+  groupId?: number
   latestScreenshotUrl?: string
   [key: string]: any
 }
@@ -124,6 +136,18 @@ const lastSeenDisplay = computed(() => {
   return dayjs(lastTime).format('YYYY-MM-DD HH:mm:ss')
 })
 
+// 计算当前分组名称显示
+const currentGroupName = computed(() => {
+  if (props.client?.group?.name) {
+    return props.client.group.name
+  }
+  if (props.client?.groupId && props.clientGroups) {
+    const group = props.clientGroups.find(g => g.id === props.client.groupId)
+    return group?.name || '未分组'
+  }
+  return '未分组'
+})
+
 // 重置表单
 const resetForm = () => {
   if (props.client) {
@@ -131,7 +155,7 @@ const resetForm = () => {
       clientNumber: props.client.clientNumber,
       computerName: props.client.computerName,
       status: props.client.status,
-      groupId: props.client.group?.id,
+      groupId: props.client.groupId,
       lastSeen: props.client.lastSeen || ''
     }
   }
@@ -201,5 +225,21 @@ const getStatusText = (status: string) => {
 
 .screenshot-image:hover {
   border-color: #1890ff;
+}
+
+.group-info {
+  width: 100%;
+}
+
+.current-group {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.current-group .label {
+  margin-right: 8px;
+  color: #666;
+  font-size: 14px;
 }
 </style>
