@@ -10,7 +10,7 @@ export const redisConfig = registerAs('redis', () => ({
   maxRetriesPerRequest: 3,
   // 连接超时配置
   connectTimeout: 10000, // 10秒连接超时
-  commandTimeout: 5000,  // 5秒命令超时
+  commandTimeout: 5000, // 5秒命令超时
   // 重连配置
   retryStrategy: (times: number) => {
     const delay = Math.min(times * 50, 2000);

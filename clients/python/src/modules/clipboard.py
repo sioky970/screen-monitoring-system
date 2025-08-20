@@ -13,14 +13,36 @@
 import re
 import time
 import threading
-import win32clipboard
-import win32con
 import io
 import base64
+import platform
 from typing import Optional, Dict, List, Set
 from datetime import datetime
 
-from PIL import Image, ImageGrab
+# 导入区块链检测器
+from .blockchain_detector import BlockchainAddressDetector
+
+# 根据操作系统选择剪贴板库
+if platform.system() == "Windows":
+    try:
+        import win32clipboard
+        import win32con
+        WINDOWS_CLIPBOARD = True
+    except ImportError:
+        WINDOWS_CLIPBOARD = False
+else:
+    WINDOWS_CLIPBOARD = False
+
+# 使用pyperclip作为跨平台剪贴板库
+import pyperclip
+
+from PIL import Image
+try:
+    from PIL import ImageGrab
+    IMAGEGRAB_AVAILABLE = True
+except ImportError:
+    IMAGEGRAB_AVAILABLE = False
+
 try:
     from mozjpeg_lossless_optimization import optimize
     MOZJPEG_AVAILABLE = True
@@ -54,9 +76,16 @@ class ClipboardMonitor:
         self._last_clipboard_content = ""
         self._last_check_time = 0
         
-        # 编译区块链地址正则表达式
+        # 编译区块链地址正则表达式（保持兼容性）
         self._blockchain_patterns = self._compile_blockchain_patterns()
-        
+
+        # 初始化增强的区块链地址检测器
+        self._blockchain_detector = BlockchainAddressDetector(
+            logger=self.logger,
+            whitelist_manager=self.whitelist_manager,
+            violation_reporter=self.violation_reporter
+        )
+
         # 检测统计
         self._detection_stats = {
             'total_checks': 0,
@@ -64,8 +93,8 @@ class ClipboardMonitor:
             'blockchain_detections': 0,
             'violations_reported': 0
         }
-        
-        self.logger.info("剪贴板监控器初始化完成")
+
+        self.logger.info("剪贴板监控器初始化完成 - 增强检测模式已启用")
     
     def _compile_blockchain_patterns(self) -> Dict[str, List[re.Pattern]]:
         """编译区块链地址正则表达式
@@ -175,14 +204,24 @@ class ClipboardMonitor:
             剪贴板文本内容，如果获取失败返回None
         """
         try:
-            win32clipboard.OpenClipboard()
-            
-            # 检查是否有文本格式
-            if not win32clipboard.IsClipboardFormatAvailable(win32con.CF_UNICODETEXT):
-                return None
-            
-            # 获取文本内容
-            content = win32clipboard.GetClipboardData(win32con.CF_UNICODETEXT)
+            if WINDOWS_CLIPBOARD:
+                # Windows平台使用win32clipboard
+                win32clipboard.OpenClipboard()
+                
+                # 检查是否有文本格式
+                if not win32clipboard.IsClipboardFormatAvailable(win32con.CF_UNICODETEXT):
+                    return None
+                
+                # 获取文本内容
+                content = win32clipboard.GetClipboardData(win32con.CF_UNICODETEXT)
+                
+                win32clipboard.CloseClipboard()
+            else:
+                # 其他平台使用pyperclip
+                content = pyperclip.paste()
+                
+                if not content:
+                    return None
             
             # 限制内容长度
             if len(content) > self.config.clipboard.max_content_length:
@@ -195,42 +234,48 @@ class ClipboardMonitor:
             self.logger.debug(f"获取剪贴板内容失败: {e}")
             return None
         finally:
-            try:
-                win32clipboard.CloseClipboard()
-            except:
-                pass
+            if WINDOWS_CLIPBOARD:
+                try:
+                    win32clipboard.CloseClipboard()
+                except:
+                    pass
     
     def _detect_blockchain_addresses(self, content: str) -> None:
-        """检测区块链地址
-        
+        """检测区块链地址 - 使用增强检测器
+
         Args:
             content: 要检测的文本内容
         """
         if not content or not content.strip():
             return
-        
-        detected_addresses = []
-        
-        # 遍历所有区块链类型
-        for blockchain_type, patterns in self._blockchain_patterns.items():
-            for pattern in patterns:
-                matches = pattern.findall(content)
-                
-                for match in matches:
-                    address = match.strip()
-                    if address and address not in [addr['address'] for addr in detected_addresses]:
-                        detected_addresses.append({
-                            'type': blockchain_type,
-                            'address': address,
-                            'position': content.find(address)
-                        })
-        
-        if detected_addresses:
-            self._detection_stats['blockchain_detections'] += len(detected_addresses)
-            self.logger.info(f"检测到 {len(detected_addresses)} 个区块链地址")
-            
+
+        # 使用增强的区块链检测器
+        detected_addresses = self._blockchain_detector.detect_addresses(content)
+
+        # 转换格式以保持兼容性
+        formatted_addresses = []
+        for addr_info in detected_addresses:
+            formatted_addresses.append({
+                'type': addr_info['type'],
+                'address': addr_info['address'],
+                'position': content.find(addr_info['address']),
+                'confidence': addr_info.get('confidence', 'high'),
+                'risk_level': addr_info.get('risk_level', 'medium'),
+                'detection_method': addr_info.get('detection_method', 'pattern_match')
+            })
+
+        if formatted_addresses:
+            self._detection_stats['blockchain_detections'] += len(formatted_addresses)
+
+            # 记录检测详情
+            high_confidence = len([addr for addr in formatted_addresses if addr['confidence'] == 'high'])
+            medium_confidence = len([addr for addr in formatted_addresses if addr['confidence'] == 'medium'])
+            high_risk = len([addr for addr in formatted_addresses if addr['risk_level'] in ['high', 'critical']])
+
+            self.logger.info(f"检测到 {len(formatted_addresses)} 个地址 (高置信度: {high_confidence}, 中置信度: {medium_confidence}, 高风险: {high_risk})")
+
             # 处理检测到的地址
-            self._process_detected_addresses(content, detected_addresses)
+            self._process_detected_addresses(content, formatted_addresses)
     
     def _process_detected_addresses(self, content: str, addresses: List[Dict]) -> None:
         """处理检测到的区块链地址
@@ -239,6 +284,8 @@ class ClipboardMonitor:
             content: 原始剪贴板内容
             addresses: 检测到的地址列表
         """
+        violation_detected = False
+        
         for addr_info in addresses:
             address = addr_info['address']
             blockchain_type = addr_info['type']
@@ -249,10 +296,25 @@ class ClipboardMonitor:
             is_whitelisted = self._check_whitelist(address, blockchain_type)
             
             if not is_whitelisted:
-                # 不在白名单中，上报违规事件
-                self._report_violation(content, addr_info)
+                # 不在白名单中，立即清空剪贴板（在上报前）
+                violation_detected = True
+
+                # 先清空剪贴板，再上报违规事件
+                clipboard_cleared = False
+                if self._clear_clipboard():
+                    clipboard_cleared = True
+                    self.logger.warning(f"检测到违规地址 {address}，已立即清空剪贴板")
+                else:
+                    self.logger.error(f"检测到违规地址 {address}，但清空剪贴板失败")
+
+                # 然后上报违规事件
+                self._report_violation(content, addr_info, clipboard_cleared)
             else:
                 self.logger.debug(f"地址在白名单中: {address}")
+
+        # 如果检测到违规但清空失败，记录警告
+        if violation_detected:
+            self.logger.warning(f"本次检测发现 {len([addr for addr in addresses if not self._check_whitelist(addr['address'], addr['type'])])} 个违规地址")
     
     def _check_whitelist(self, address: str, blockchain_type: str) -> bool:
         """检查地址是否在白名单中
@@ -273,12 +335,13 @@ class ClipboardMonitor:
             self.logger.error(f"白名单检查异常: {e}")
             return False
     
-    def _report_violation(self, content: str, addr_info: Dict) -> None:
+    def _report_violation(self, content: str, addr_info: Dict, clipboard_cleared: bool = False) -> None:
         """上报违规事件
-        
+
         Args:
             content: 剪贴板内容
             addr_info: 地址信息
+            clipboard_cleared: 剪贴板是否已清空
         """
         try:
             # 捕获违规截图
@@ -294,7 +357,12 @@ class ClipboardMonitor:
                     'detectionTime': datetime.now().isoformat(),
                     'position': addr_info['position'],
                     'contentLength': len(content),
-                    'contentPreview': content[:200] if len(content) > 200 else content
+                    'contentPreview': content[:200] if len(content) > 200 else content,
+                    'confidence': addr_info.get('confidence', 'high'),
+                    'riskLevel': addr_info.get('risk_level', 'medium'),
+                    'detectionMethod': addr_info.get('detection_method', 'pattern_match'),
+                    'clipboardCleared': clipboard_cleared,
+                    'clearTime': datetime.now().isoformat() if clipboard_cleared else None
                 }
             }
             
@@ -441,3 +509,35 @@ class ClipboardMonitor:
                 win32clipboard.CloseClipboard()
             except:
                 pass
+    
+    def _clear_clipboard(self) -> bool:
+        """清空剪贴板内容
+        
+        Returns:
+            bool: 清空操作是否成功
+        """
+        try:
+            if WINDOWS_CLIPBOARD:
+                # Windows平台使用win32clipboard
+                win32clipboard.OpenClipboard()
+                win32clipboard.EmptyClipboard()
+                win32clipboard.CloseClipboard()
+            else:
+                # 其他平台使用pyperclip
+                pyperclip.copy("")
+            
+            # 更新本地记录的剪贴板内容
+            self._last_clipboard_content = ""
+            
+            self.logger.info("剪贴板已清空")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"清空剪贴板失败: {e}")
+            return False
+        finally:
+            if WINDOWS_CLIPBOARD:
+                try:
+                    win32clipboard.CloseClipboard()
+                except:
+                    pass

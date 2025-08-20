@@ -128,7 +128,11 @@ export class DateService {
   }
 
   // 获取时间范围
-  getDateRange(range: 'today' | 'yesterday' | 'week' | 'month' | 'custom', customStart?: Date, customEnd?: Date): {
+  getDateRange(
+    range: 'today' | 'yesterday' | 'week' | 'month' | 'custom',
+    customStart?: Date,
+    customEnd?: Date,
+  ): {
     start: Date;
     end: Date;
   } {

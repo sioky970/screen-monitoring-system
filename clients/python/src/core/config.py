@@ -63,6 +63,7 @@ class ClipboardConfig:
     check_interval: float = 0.5
     enabled: bool = True
     max_content_length: int = 10000
+    auto_clear_on_violation: bool = True
 
 
 @dataclass
@@ -73,9 +74,15 @@ class HeartbeatConfig:
 
 
 @dataclass
+class ConfigSyncConfig:
+    """配置同步配置"""
+    interval: int = 300  # 5分钟
+
+
+@dataclass
 class WhitelistConfig:
     """白名单配置"""
-    sync_interval: int = 300
+    sync_interval: int = 180  # 3分钟同步间隔
     cache_file: str = "whitelist_cache.json"
     cache_ttl: int = 3600  # 缓存过期时间（秒），默认1小时
     enabled: bool = True
@@ -139,6 +146,7 @@ class AppConfig:
     screenshot: ScreenshotConfig = field(default_factory=ScreenshotConfig)
     clipboard: ClipboardConfig = field(default_factory=ClipboardConfig)
     heartbeat: HeartbeatConfig = field(default_factory=HeartbeatConfig)
+    config_sync: ConfigSyncConfig = field(default_factory=ConfigSyncConfig)
     whitelist: WhitelistConfig = field(default_factory=WhitelistConfig)
     blockchain: BlockchainConfig = field(default_factory=BlockchainConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)

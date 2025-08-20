@@ -1,4 +1,5 @@
-import { Entity, Column, Index, ManyToOne, JoinColumn, OneToMany, PrimaryColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, Column, Index, ManyToOne, JoinColumn, OneToMany, PrimaryColumn } from 'typeorm';
+import { BaseEntity } from './base.entity';
 import { ClientGroup } from './client-group.entity';
 import { SecurityScreenshot } from './security-screenshot.entity';
 import { ClientOnlineLog } from './client-online-log.entity';
@@ -11,7 +12,7 @@ export enum ClientStatus {
 }
 
 @Entity('clients')
-export class Client {
+export class Client extends BaseEntity {
   @PrimaryColumn({
     type: 'varchar',
     length: 36,
@@ -152,23 +153,13 @@ export class Client {
   isActive: boolean;
 
   // 关联关系
-  @ManyToOne(() => ClientGroup, (group) => group.clients)
+  @ManyToOne(() => ClientGroup, group => group.clients)
   @JoinColumn({ name: 'group_id' })
   group: ClientGroup;
 
-  @OneToMany(() => SecurityScreenshot, (screenshot) => screenshot.client)
+  @OneToMany(() => SecurityScreenshot, screenshot => screenshot.client)
   securityScreenshots: SecurityScreenshot[];
 
-  @OneToMany(() => ClientOnlineLog, (log) => log.client)
+  @OneToMany(() => ClientOnlineLog, log => log.client)
   onlineLogs: ClientOnlineLog[];
-
-  @CreateDateColumn({
-    comment: '创建时间',
-  })
-  createdAt: Date;
-
-  @UpdateDateColumn({
-    comment: '更新时间',
-  })
-  updatedAt: Date;
 }

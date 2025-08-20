@@ -1,43 +1,28 @@
-import { IsOptional, IsString, IsEnum, IsNumber, Min, Max, IsDateString } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsString, IsEnum, IsDateString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { AlertStatus } from '../../../entities/security-screenshot.entity';
 import { AlertType } from './create-security-alert.dto';
+import { PaginationDto } from '../../../common/dto/pagination.dto';
 
-export class QuerySecurityAlertsDto {
-  @ApiPropertyOptional({ description: '页码', default: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  page?: number = 1;
-
-  @ApiPropertyOptional({ description: '每页数量', default: 20 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  @Max(100)
-  pageSize?: number = 20;
-
+export class QuerySecurityAlertsDto extends PaginationDto {
   @ApiPropertyOptional({ description: '客户端ID' })
   @IsOptional()
   @IsString()
   clientId?: string;
 
-  @ApiPropertyOptional({ 
-    description: '告警类型', 
+  @ApiPropertyOptional({
+    description: '告警类型',
     enum: AlertType,
-    enumName: 'AlertType'
+    enumName: 'AlertType',
   })
   @IsOptional()
   @IsEnum(AlertType)
   alertType?: AlertType;
 
-  @ApiPropertyOptional({ 
-    description: '告警状态', 
+  @ApiPropertyOptional({
+    description: '告警状态',
     enum: AlertStatus,
-    enumName: 'AlertStatus'
+    enumName: 'AlertStatus',
   })
   @IsOptional()
   @IsEnum(AlertStatus)

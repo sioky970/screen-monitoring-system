@@ -8,12 +8,18 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     @Inject('REDIS_CLIENT')
-    private readonly redisClient: RedisClientType,
+    private readonly redisClient: RedisClientType | null,
   ) {
-    this.setupEventHandlers();
+    if (this.redisClient) {
+      this.setupEventHandlers();
+    } else {
+      this.logger.log('Redis已禁用，跳过初始化');
+    }
   }
 
   private setupEventHandlers() {
+    if (!this.redisClient) return;
+
     this.redisClient.on('connect', () => {
       this.logger.log('Redis客户端连接成功');
       this.isConnected = true;
@@ -24,7 +30,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       this.isConnected = true;
     });
 
-    this.redisClient.on('error', (error) => {
+    this.redisClient.on('error', error => {
       // 减少错误日志的频率，避免日志刷屏
       if (error.message.includes('Socket closed unexpectedly')) {
         this.logger.debug('Redis连接意外关闭，正在重连...');
@@ -45,6 +51,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
+    if (!this.redisClient) {
+      this.logger.log('Redis已禁用，跳过连接');
+      return;
+    }
+
     try {
       await this.redisClient.connect();
       this.logger.log('Redis服务初始化完成');
@@ -55,6 +66,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
+    if (!this.redisClient) {
+      return;
+    }
+
     try {
       await this.redisClient.quit();
       this.logger.log('Redis连接已关闭');
@@ -64,6 +79,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async ensureConnection(): Promise<boolean> {
+    if (!this.redisClient) {
+      return false;
+    }
+
     if (!this.isConnected) {
       try {
         await this.redisClient.connect();
@@ -89,11 +108,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async set(
-    key: string,
-    value: string,
-    ttl?: number,
-  ): Promise<void> {
+  async set(key: string, value: string, ttl?: number): Promise<void> {
     try {
       if (!(await this.ensureConnection())) {
         this.logger.warn(`Redis未连接，无法执行SET操作: ${key}`);

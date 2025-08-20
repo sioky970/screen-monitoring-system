@@ -90,6 +90,4 @@ export class Notification extends BaseEntity {
   })
   @Index('idx_expires_at')
   expiresAt: Date;
-
-
 }

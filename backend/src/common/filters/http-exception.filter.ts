@@ -1,10 +1,4 @@
-import {
-  ExceptionFilter,
-  Catch,
-  ArgumentsHost,
-  HttpException,
-  HttpStatus,
-} from '@nestjs/common';
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException } from '@nestjs/common';
 import { Request, Response } from 'express';
 
 @Catch(HttpException)
@@ -16,7 +10,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const status = exception.getStatus();
 
     const exceptionResponse = exception.getResponse();
-    const message = 
+    const message =
       typeof exceptionResponse === 'string'
         ? exceptionResponse
         : (exceptionResponse as any).message || exception.message;
@@ -32,13 +26,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
     };
 
     // 记录错误日志
-    console.error(
-      `HTTP Exception: ${status} - ${request.method} ${request.url}`,
-      {
-        error: errorResponse,
-        stack: exception.stack,
-      },
-    );
+    console.error(`HTTP Exception: ${status} - ${request.method} ${request.url}`, {
+      error: errorResponse,
+      stack: exception.stack,
+    });
 
     response.status(status).json(errorResponse);
   }

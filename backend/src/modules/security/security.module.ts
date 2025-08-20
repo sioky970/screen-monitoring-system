@@ -7,7 +7,8 @@ import { BlockchainWhitelist } from '../../entities/blockchain-whitelist.entity'
 import { Client } from '../../entities/client.entity';
 import { SecurityService } from './security.service';
 import { SecurityController } from './security.controller';
-import { WebSocketModule } from '../websocket/websocket.module';
+
+import { ClientsModule } from '../clients/clients.module';
 
 @Module({
   imports: [
@@ -18,7 +19,8 @@ import { WebSocketModule } from '../websocket/websocket.module';
       BlockchainWhitelist,
       Client,
     ]),
-    WebSocketModule,
+
+    ClientsModule,
   ],
   controllers: [SecurityController],
   providers: [SecurityService],

@@ -4,14 +4,14 @@ import { IsEmail, IsString, MinLength } from 'class-validator';
 export class AdminLoginDto {
   @ApiProperty({
     description: '管理员邮箱',
-    example: 'admin@example.com'
+    example: 'admin@example.com',
   })
   @IsEmail({}, { message: '邮箱格式不正确' })
   email: string;
 
   @ApiProperty({
     description: '密码',
-    example: 'admin123'
+    example: 'admin123',
   })
   @IsString({ message: '密码必须是字符串' })
   @MinLength(6, { message: '密码至少6位' })
@@ -32,8 +32,8 @@ export class AdminLoginResponseDto {
       username: 'admin',
       email: 'admin@example.com',
       role: 'admin',
-      realName: '系统管理员'
-    }
+      realName: '系统管理员',
+    },
   })
   user: {
     id: number;

@@ -1,21 +1,19 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Put, 
-  Delete, 
-  Body, 
-  Param, 
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
   Query,
-  UseGuards,
-  ParseIntPipe
+  ParseIntPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { WhitelistService } from './whitelist.service';
 import { Public } from '../auth/decorators/public.decorator';
 
 import { CreateWhitelistDto, UpdateWhitelistDto, QueryWhitelistDto } from './dto';
-import { UserRole } from '../../common/enums/user-role.enum';
 
 @ApiTags('白名单管理')
 @Controller('whitelist')
@@ -58,20 +56,14 @@ export class WhitelistController {
   @Public()
   @Put(':id')
   @ApiOperation({ summary: '更新白名单信息' })
-  update(
-    @Param('id', ParseIntPipe) id: number, 
-    @Body() updateWhitelistDto: UpdateWhitelistDto
-  ) {
+  update(@Param('id', ParseIntPipe) id: number, @Body() updateWhitelistDto: UpdateWhitelistDto) {
     return this.whitelistService.update(id, updateWhitelistDto, null);
   }
 
   @Public()
   @Put(':id/status')
   @ApiOperation({ summary: '更新白名单状态' })
-  updateStatus(
-    @Param('id', ParseIntPipe) id: number, 
-    @Body() body: { isActive: boolean }
-  ) {
+  updateStatus(@Param('id', ParseIntPipe) id: number, @Body() body: { isActive: boolean }) {
     return this.whitelistService.updateStatus(id, body.isActive, null);
   }
 
@@ -100,7 +92,7 @@ export class WhitelistController {
   @Get('addresses/active')
   @ApiOperation({
     summary: '获取所有激活的白名单地址（供客户端检测使用）',
-    description: '返回所有状态为激活的区块链地址列表，客户端用于本地违规检测'
+    description: '返回所有状态为激活的区块链地址列表，客户端用于本地违规检测',
   })
   getActiveAddresses() {
     return this.whitelistService.getActiveAddresses();

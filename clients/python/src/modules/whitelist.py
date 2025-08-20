@@ -250,6 +250,39 @@ class WhitelistManager:
             
             return is_whitelisted
     
+    def validate_addresses(self, addresses: list) -> dict:
+        """批量验证地址是否在白名单中
+        
+        Args:
+            addresses: 地址列表
+        
+        Returns:
+            验证结果字典，包含whitelisted和violations列表
+        """
+        if not self.config.whitelist.enabled:
+            return {
+                'whitelisted': addresses,
+                'violations': []
+            }
+        
+        whitelisted = []
+        violations = []
+        
+        with self._lock:
+            for address in addresses:
+                normalized_address = address.lower().strip()
+                if normalized_address in self._whitelist:
+                    whitelisted.append(address)
+                    self._stats['cache_hits'] += 1
+                else:
+                    violations.append(address)
+                    self._stats['cache_misses'] += 1
+        
+        return {
+            'whitelisted': whitelisted,
+            'violations': violations
+        }
+    
     def add_address(self, address: str) -> bool:
         """添加地址到白名单
         

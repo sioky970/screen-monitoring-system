@@ -206,14 +206,20 @@ const handleChangePassword = async () => {
 }
 
 onMounted(() => {
-  // 检查token状态并获取用户信息
+  // 只有在用户信息不存在且token存在时才获取用户信息
   const token = localStorage.getItem('token')
   console.log('MainLayout mounted - token存在:', !!token)
   console.log('MainLayout mounted - authStore.isAuthenticated:', authStore.isAuthenticated)
+  console.log('MainLayout mounted - authStore.user:', authStore.user)
   
-  if (token) {
-    console.log('Token存在，获取用户信息')
-    authStore.fetchProfile()
+  if (token && !authStore.user) {
+    console.log('Token存在但用户信息不存在，获取用户信息')
+    authStore.fetchProfile().catch(() => {
+      // 如果获取用户信息失败，token可能已过期，清除认证状态
+      console.log('获取用户信息失败，可能token已过期')
+    })
+  } else if (token && authStore.user) {
+    console.log('Token和用户信息都存在，跳过获取用户信息')
   } else {
     console.log('Token不存在，跳过获取用户信息')
   }

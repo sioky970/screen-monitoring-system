@@ -126,7 +126,7 @@ export class ClientConfig extends BaseEntityWithId {
   remark: string;
 
   // 关联关系
-  @ManyToOne(() => Client, (client) => client.id)
+  @ManyToOne(() => Client, client => client.id)
   @JoinColumn({ name: 'client_id' })
   client: Client;
 }

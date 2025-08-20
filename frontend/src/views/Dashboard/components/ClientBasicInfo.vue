@@ -13,11 +13,6 @@
           </a-form-item>
         </a-col>
         <a-col :span="12">
-          <a-form-item label="IP地址">
-            <a-input v-model:value="editForm.ipAddress" disabled />
-          </a-form-item>
-        </a-col>
-        <a-col :span="12">
           <a-form-item label="状态">
             <a-tag :color="getStatusColor(editForm.status)">
               {{ getStatusText(editForm.status) }}
@@ -35,9 +30,9 @@
         </a-col>
         <a-col :span="12">
           <a-form-item label="最后在线">
-            <a-input 
-              :value="editForm.lastSeen ? dayjs(editForm.lastSeen).format('YYYY-MM-DD HH:mm:ss') : '--'" 
-              disabled 
+            <a-input
+              :value="lastSeenDisplay"
+              disabled
             />
           </a-form-item>
         </a-col>
@@ -81,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import dayjs from 'dayjs'
 
 interface Client {
@@ -91,6 +86,7 @@ interface Client {
   ip?: string
   status: string
   lastSeen?: string
+  lastHeartbeat?: string
   group?: { id: number; name: string }
   latestScreenshotUrl?: string
   [key: string]: any
@@ -115,18 +111,18 @@ const emit = defineEmits<Emits>()
 const editForm = ref({
   clientNumber: '',
   computerName: '',
-  ipAddress: '',
   status: '',
   groupId: undefined as number | undefined,
   lastSeen: ''
 })
 
-// 监听客户端变化，重置表单
-watch(() => props.client, (newClient) => {
-  if (newClient) {
-    resetForm()
-  }
-}, { immediate: true })
+// 计算最后在线时间显示
+const lastSeenDisplay = computed(() => {
+  // 优先使用 lastHeartbeat，如果没有则使用 lastSeen
+  const lastTime = props.client?.lastHeartbeat || props.client?.lastSeen
+  if (!lastTime) return '--'
+  return dayjs(lastTime).format('YYYY-MM-DD HH:mm:ss')
+})
 
 // 重置表单
 const resetForm = () => {
@@ -134,13 +130,19 @@ const resetForm = () => {
     editForm.value = {
       clientNumber: props.client.clientNumber,
       computerName: props.client.computerName,
-      ipAddress: props.client.ip || '',
       status: props.client.status,
       groupId: props.client.group?.id,
       lastSeen: props.client.lastSeen || ''
     }
   }
 }
+
+// 监听客户端变化，重置表单
+watch(() => props.client, (newClient) => {
+  if (newClient) {
+    resetForm()
+  }
+}, { immediate: true })
 
 // 保存修改
 const handleSave = () => {

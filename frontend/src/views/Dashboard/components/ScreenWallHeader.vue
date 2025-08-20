@@ -2,9 +2,6 @@
   <div class="screen-wall-header">
     <div class="header-left">
       <h2>屏幕墙监控</h2>
-      <a-tag :color="isConnected ? 'success' : 'error'">
-        {{ isConnected ? '实时连接' : '连接断开' }}
-      </a-tag>
     </div>
 
     <div class="header-right">
@@ -63,7 +60,6 @@
 import { ReloadOutlined, FileTextOutlined } from '@ant-design/icons-vue'
 
 interface Props {
-  isConnected: boolean
   loading: boolean
   gridColumns: number
   isFullscreen: boolean

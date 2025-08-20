@@ -9,12 +9,18 @@ import { ClientsService } from './clients.service';
 import { ClientConfigService } from './client-config.service';
 import { ClientsController } from './clients.controller';
 import { ClientConfigController } from './client-config.controller';
-import { WebSocketModule } from '../websocket/websocket.module';
+
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Client, ClientGroup, ClientOnlineLog, SecurityScreenshot, ClientConfig]),
-    forwardRef(() => WebSocketModule),
+    TypeOrmModule.forFeature([
+      Client,
+      ClientGroup,
+      ClientOnlineLog,
+      SecurityScreenshot,
+      ClientConfig,
+    ]),
+
   ],
   controllers: [ClientsController, ClientConfigController],
   providers: [ClientsService, ClientConfigService],

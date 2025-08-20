@@ -10,13 +10,7 @@ import {
   UseGuards,
   ParseIntPipe,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-  ApiQuery,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
@@ -24,6 +18,7 @@ import { QueryClientsDto } from './dto/query-clients.dto';
 import { CreateClientGroupDto } from './dto/create-client-group.dto';
 import { UpdateClientGroupDto } from './dto/update-client-group.dto';
 import { BulkDeleteDto } from './dto/bulk-delete.dto';
+import { ClientHeartbeatDto } from './dto/client-heartbeat.dto';
 import { Public } from '../auth/decorators/public.decorator';
 
 import { UserRole } from '../../common/enums/user-role.enum';
@@ -49,6 +44,15 @@ export class ClientsController {
   @ApiResponse({ status: 200, description: '获取成功' })
   getStats() {
     return this.clientsService.getClientStats();
+  }
+
+  @Public()
+  @Post('heartbeat')
+  @ApiOperation({ summary: '客户端心跳' })
+  @ApiResponse({ status: 200, description: '心跳成功' })
+  @ApiResponse({ status: 400, description: '请求参数错误' })
+  heartbeat(@Body() heartbeatDto: ClientHeartbeatDto) {
+    return this.clientsService.handleHeartbeat(heartbeatDto);
   }
 
   @Public()
@@ -150,10 +154,7 @@ export class ClientsController {
   @ApiOperation({ summary: '更新客户端分组' })
   @ApiResponse({ status: 200, description: '更新成功' })
   @ApiResponse({ status: 404, description: '分组不存在' })
-  updateGroup(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() updateGroupDto: UpdateClientGroupDto,
-  ) {
+  updateGroup(@Param('id', ParseIntPipe) id: number, @Body() updateGroupDto: UpdateClientGroupDto) {
     return this.clientsService.updateGroup(id, updateGroupDto);
   }
 

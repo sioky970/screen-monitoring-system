@@ -3,10 +3,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AlertStatus } from '../../../entities/security-screenshot.entity';
 
 export class UpdateAlertStatusDto {
-  @ApiProperty({ 
-    description: '告警状态', 
+  @ApiProperty({
+    description: '告警状态',
     enum: AlertStatus,
-    enumName: 'AlertStatus'
+    enumName: 'AlertStatus',
   })
   @IsEnum(AlertStatus)
   status: AlertStatus;

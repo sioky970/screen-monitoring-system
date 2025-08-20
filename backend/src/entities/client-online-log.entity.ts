@@ -56,7 +56,7 @@ export class ClientOnlineLog extends BaseEntity {
   disconnectReason: string;
 
   // 关联关系
-  @ManyToOne(() => Client, (client) => client.onlineLogs, {
+  @ManyToOne(() => Client, client => client.onlineLogs, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'client_id' })

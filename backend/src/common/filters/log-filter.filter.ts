@@ -43,7 +43,10 @@ export class LogFilterExceptionFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const errorResponse = exception.getResponse();
-      message = typeof errorResponse === 'string' ? errorResponse : (errorResponse as any).message || message;
+      message =
+        typeof errorResponse === 'string'
+          ? errorResponse
+          : (errorResponse as any).message || message;
       errorName = exception.constructor.name;
     } else if (exception instanceof Error) {
       message = exception.message;
@@ -71,7 +74,10 @@ export class LogFilterExceptionFilter implements ExceptionFilter {
       };
 
       if (status >= 500) {
-        this.logger.error(`服务器错误: ${JSON.stringify(errorInfo)}`, exception instanceof Error ? exception.stack : undefined);
+        this.logger.error(
+          `服务器错误: ${JSON.stringify(errorInfo)}`,
+          exception instanceof Error ? exception.stack : undefined,
+        );
       } else if (status >= 400) {
         this.logger.warn(`客户端错误: ${JSON.stringify(errorInfo)}`);
       }
@@ -99,8 +105,8 @@ export class LogFilterExceptionFilter implements ExceptionFilter {
     }
 
     // 检查错误类型是否需要过滤
-    const errorFiltered = this.filteredErrors.some(filterError => 
-      errorName.includes(filterError) || message.includes(filterError)
+    const errorFiltered = this.filteredErrors.some(
+      filterError => errorName.includes(filterError) || message.includes(filterError),
     );
     if (errorFiltered) {
       return true;

@@ -33,7 +33,7 @@ export class UploadQueueService extends EventEmitter {
     clientId: string,
     buffer: Buffer,
     uploadFunction: (buffer: Buffer) => Promise<any>,
-    maxRetries: number = 3
+    maxRetries: number = 3,
   ): Promise<any> {
     return new Promise((resolve, reject) => {
       // 检查队列大小
@@ -55,7 +55,7 @@ export class UploadQueueService extends EventEmitter {
 
       this.queue.push(task);
       this.logger.debug(`Added upload task to queue: ${task.id}, queue size: ${this.queue.length}`);
-      
+
       // 触发处理
       this.processQueue();
     });
@@ -67,7 +67,7 @@ export class UploadQueueService extends EventEmitter {
   private startProcessing() {
     this.isProcessing = true;
     this.processQueue();
-    
+
     // 定期清理超时任务
     setInterval(() => {
       this.cleanupExpiredTasks();
@@ -95,28 +95,29 @@ export class UploadQueueService extends EventEmitter {
   private async processTask(task: UploadTask) {
     try {
       this.logger.debug(`Processing upload task: ${task.id}`);
-      
+
       // 这里需要在调用时传入具体的上传函数
       // 由于我们需要访问MinioService，这个方法需要在调用时提供上传逻辑
       const result = await this.executeUpload(task);
-      
+
       task.resolve(result);
       this.logger.debug(`Upload task completed: ${task.id}`);
-      
     } catch (error) {
       this.logger.error(`Upload task failed: ${task.id}, error: ${error.message}`);
-      
+
       // 重试逻辑
       if (task.retryCount < task.maxRetries) {
         task.retryCount++;
         this.logger.debug(`Retrying upload task: ${task.id}, attempt: ${task.retryCount}`);
-        
+
         // 延迟重试
-        setTimeout(() => {
-          this.queue.unshift(task); // 重新加入队列头部
-          this.processQueue();
-        }, Math.min(1000 * Math.pow(2, task.retryCount), 10000)); // 指数退避，最大10秒
-        
+        setTimeout(
+          () => {
+            this.queue.unshift(task); // 重新加入队列头部
+            this.processQueue();
+          },
+          Math.min(1000 * Math.pow(2, task.retryCount), 10000),
+        ); // 指数退避，最大10秒
       } else {
         task.reject(error);
       }
@@ -129,7 +130,7 @@ export class UploadQueueService extends EventEmitter {
   /**
    * 执行上传（需要在MinioService中实现具体逻辑）
    */
-  private async executeUpload(task: UploadTask): Promise<any> {
+  private async executeUpload(_task: UploadTask): Promise<any> {
     // 这个方法会被MinioService重写
     throw new Error('Upload function not implemented');
   }

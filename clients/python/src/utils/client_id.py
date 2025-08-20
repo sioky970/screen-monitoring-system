@@ -41,6 +41,9 @@ class ClientIdManager:
         # 系统信息收集器
         self.system_info = SystemInfoCollector.collect_all_info()
         
+        # 内存缓存的客户端UID，避免频繁文件读取
+        self._cached_uid: Optional[str] = None
+        
         self.logger.info(f"客户端UID管理器初始化完成，UID文件: {self.client_uid_file}")
     
     def _get_client_uid_file_path(self) -> str:
@@ -56,16 +59,23 @@ class ClientIdManager:
     def get_client_uid(self) -> str:
         """获取客户端UID
         
-        尝试从本地文件加载UID，如果不存在则生成新的UID并进行注册
+        优先使用内存缓存，避免频繁文件读取
+        如果缓存为空，则从本地文件加载UID，如果不存在则生成新的UID并进行注册
         
         Returns:
             客户端UID
         """
+        # 如果内存中已有缓存，直接返回
+        if self._cached_uid:
+            return self._cached_uid
+        
         # 尝试从本地文件加载UID
         local_client_uid = self._load_local_client_uid()
         
         if local_client_uid:
             self.logger.info(f"从本地文件加载客户端UID: {local_client_uid}")
+            # 缓存到内存中
+            self._cached_uid = local_client_uid
             return local_client_uid
         
         # 生成新的UID
@@ -76,11 +86,15 @@ class ClientIdManager:
         if register_result and register_result.get('data', {}).get('uid'):
             # 保存到本地文件
             self._save_local_client_uid(new_uid)
+            # 缓存到内存中
+            self._cached_uid = new_uid
             self.logger.info(f"客户端注册成功，UID: {new_uid}")
             return new_uid
         else:
             # 注册失败，仍然保存UID以便下次使用
             self._save_local_client_uid(new_uid)
+            # 缓存到内存中
+            self._cached_uid = new_uid
             self.logger.warning(f"客户端注册失败，但已保存UID: {new_uid}")
             return new_uid
     

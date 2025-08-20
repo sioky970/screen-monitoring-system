@@ -13,10 +13,6 @@ export interface Client {
   id: string
   clientNumber: string
   computerName: string
-  ip?: string
-  mac?: string
-  os?: string
-  version?: string
   status: 'online' | 'offline' | 'error' | 'installing'
   lastSeen?: string
   group?: ClientGroup

@@ -76,6 +76,4 @@ export class SystemLog extends BaseEntity {
     comment: '额外数据（JSON格式）',
   })
   extraData: Record<string, any>;
-
-
 }

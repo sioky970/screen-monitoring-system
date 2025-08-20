@@ -1,0 +1,136 @@
+# 屏幕监控系统 Python 客户端配置文件 - 生产环境版本
+
+# 服务器配置
+server:
+  # 后端API地址 - 本地测试环境
+  api_base_url: "http://localhost:3001/api"
+  # WebSocket地址 - 本地测试环境（已移除WebSocket功能）
+  websocket_url: "ws://localhost:3001/monitor"
+  # 请求超时时间（秒）
+  timeout: 30
+  # 最大重试次数
+  max_retries: 3
+  # 重试间隔（秒）
+  retry_delay: 1
+
+# 客户端配置
+client:
+  # 客户端名称
+  name: "Python监控客户端"
+  # 客户端版本
+  version: "1.0.0"
+  # 是否启用（可通过服务器动态控制）
+  enabled: true
+  # 客户端ID存储文件
+  client_id_file: "client_id.txt"
+  # 调试模式配置
+  debug:
+    # 是否启用调试模式（生产环境建议关闭）
+    enabled: false
+    # 是否显示控制台窗口（仅在调试模式下有效）
+    show_console: false
+    # 是否输出详细日志到控制台
+    verbose_console: false
+
+# 屏幕截图配置
+screenshot:
+  # 截图间隔（秒）
+  interval: 15
+  # 图片质量（1-100）
+  quality: 60
+  # 最大长边像素
+  max_long_side: 1600
+  # 最大文件大小（字节）
+  max_file_size: 307200  # 300KB
+  # 截图格式
+  format: "JPEG"
+  # 是否只截取主屏幕
+  primary_screen_only: true
+
+# 剪贴板监控配置
+clipboard:
+  # 检测间隔（秒）
+  check_interval: 0.5
+  # 是否启用剪贴板监控
+  enabled: true
+  # 最大内容长度
+  max_content_length: 10000
+  # 检测到违规地址时是否自动清空剪贴板
+  auto_clear_on_violation: true
+
+# 心跳配置
+heartbeat:
+  # 心跳间隔（秒）
+  interval: 30
+  # 是否启用心跳
+  enabled: true
+
+# 配置同步
+config_sync:
+  # 配置同步间隔（秒）
+  interval: 300  # 5分钟
+
+# 白名单配置
+whitelist:
+  # 同步间隔（秒）
+  sync_interval: 300  # 5分钟
+  # 本地缓存文件
+  cache_file: "whitelist_cache.json"
+  # 缓存过期时间（秒）
+  cache_ttl: 3600  # 1小时
+  # 是否启用白名单检查
+  enabled: true
+
+# 区块链地址检测配置
+blockchain:
+  # 支持的区块链类型及其正则表达式
+  patterns:
+    bitcoin: 
+      - "\\b[13][a-km-z1-9A-HJ-NP-Z]{25,34}\\b"  # Legacy addresses
+      - "\\bbc1[a-z0-9]{39,59}\\b"                # Bech32 addresses
+    ethereum: "\\b0x[a-fA-F0-9]{40}\\b"
+    tron: "\\bT[A-Za-z1-9]{33}\\b"
+    litecoin: "\\b[LM3][a-km-z1-9A-HJ-NP-Z]{26,33}\\b"
+    dogecoin: "\\bD{1}[5-9A-HJ-NP-U]{1}[1-9A-HJ-NP-Za-km-z]{32}\\b"
+
+# 日志配置
+logging:
+  # 日志级别（生产环境建议使用INFO或WARNING）
+  level: "INFO"
+  # 日志文件路径
+  file: "logs/client.log"
+  # 日志文件最大大小（MB）
+  max_size: 10
+  # 保留的日志文件数量
+  backup_count: 7
+  # 日志格式
+  format: "{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}"
+
+# Windows服务配置
+service:
+  # 服务名称
+  name: "ScreenMonitorPython"
+  # 服务显示名称
+  display_name: "屏幕监控系统 Python 客户端"
+  # 服务描述
+  description: "屏幕监控系统的Python客户端服务，用于屏幕截图采集和安全监控"
+  # 是否开机自启动
+  auto_start: true
+
+# 安全配置
+security:
+  # 是否启用数据加密
+  encryption_enabled: false
+  # 加密密钥（如果启用加密）
+  encryption_key: ""
+  # 是否验证SSL证书
+  verify_ssl: false
+
+# 性能配置
+performance:
+  # 工作线程数
+  worker_threads: 2
+  # 内存使用限制（MB）
+  memory_limit: 100
+  # CPU使用限制（百分比）
+  cpu_limit: 10

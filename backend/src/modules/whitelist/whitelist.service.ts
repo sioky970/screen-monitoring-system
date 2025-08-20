@@ -1,31 +1,32 @@
-import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BlockchainWhitelist } from '../../entities/blockchain-whitelist.entity';
-import { WebSocketService } from '../websocket/websocket.service';
+
 
 @Injectable()
 export class WhitelistService {
+  private readonly logger = new Logger(WhitelistService.name);
+
   constructor(
     @InjectRepository(BlockchainWhitelist)
     private readonly whitelistRepository: Repository<BlockchainWhitelist>,
-    @Inject(forwardRef(() => WebSocketService))
-    private readonly webSocketService: WebSocketService,
+
   ) {}
 
   async findAll(query?: any): Promise<BlockchainWhitelist[]> {
     const queryBuilder = this.whitelistRepository.createQueryBuilder('whitelist');
-    
+
     if (query?.search) {
       queryBuilder.where('whitelist.address LIKE :search OR whitelist.description LIKE :search', {
-        search: `%${query.search}%`
+        search: `%${query.search}%`,
       });
     }
-    
+
     if (query?.isActive !== undefined) {
       queryBuilder.andWhere('whitelist.is_active = :isActive', { isActive: query.isActive });
     }
-    
+
     return queryBuilder.orderBy('whitelist.created_at', 'DESC').getMany();
   }
 
@@ -41,84 +42,86 @@ export class WhitelistService {
     const total = await this.whitelistRepository.count();
     const active = await this.whitelistRepository.count({ where: { isActive: true } });
     const inactive = total - active;
-    
+
     return {
       total,
       active,
-      inactive
+      inactive,
     };
   }
 
   async create(createWhitelistDto: any, currentUserId: number): Promise<BlockchainWhitelist> {
     // Generate addressHash if not provided
-    const addressHash = Buffer.from(createWhitelistDto.address, 'utf8').toString('base64').substring(0, 64);
+    const addressHash = Buffer.from(createWhitelistDto.address, 'utf8')
+      .toString('base64')
+      .substring(0, 64);
 
     const whitelist = this.whitelistRepository.create({
       ...createWhitelistDto,
       addressHash,
       isActive: true,
-      createdBy: currentUserId || 1 // Default to user ID 1 if not provided
+      createdBy: currentUserId || 1, // Default to user ID 1 if not provided
     });
     const savedWhitelist = await this.whitelistRepository.save(whitelist);
     const result = Array.isArray(savedWhitelist) ? savedWhitelist[0] : savedWhitelist;
-    
+
     // 广播白名单更新
     await this.broadcastWhitelistUpdate('created', result);
-    
+
     return result;
   }
 
-  async update(id: number, updateWhitelistDto: any, userId: number): Promise<BlockchainWhitelist> {
+  async update(id: number, updateWhitelistDto: any, _userId: number): Promise<BlockchainWhitelist> {
     const whitelist = await this.findById(id);
-    
+
     Object.assign(whitelist, updateWhitelistDto);
-    
+
     const result = await this.whitelistRepository.save(whitelist);
-    
+
     // 广播白名单更新
     await this.broadcastWhitelistUpdate('updated', result);
-    
+
     return result;
   }
 
-  async updateStatus(id: number, isActive: boolean, userId: number): Promise<BlockchainWhitelist> {
+  async updateStatus(id: number, isActive: boolean, _userId: number): Promise<BlockchainWhitelist> {
     const whitelist = await this.findById(id);
-    
+
     whitelist.isActive = isActive;
-    
+
     const result = await this.whitelistRepository.save(whitelist);
-    
+
     // 广播白名单更新
     await this.broadcastWhitelistUpdate('status_updated', result);
-    
+
     return result;
   }
 
-  async remove(id: number, userId: number): Promise<void> {
+  async remove(id: number, _userId: number): Promise<void> {
     const whitelist = await this.findById(id);
     await this.whitelistRepository.remove(whitelist);
-    
+
     // 广播白名单更新
     await this.broadcastWhitelistUpdate('deleted', { id, address: whitelist.address });
   }
 
-  async batchDelete(ids: number[], userId: number): Promise<void> {
+  async batchDelete(ids: number[], _userId: number): Promise<void> {
     // 获取要删除的地址信息用于广播
     const whitelistsToDelete = await this.whitelistRepository.findByIds(ids);
-    
+
     await this.whitelistRepository.delete(ids);
-    
+
     // 广播批量删除
-    await this.broadcastWhitelistUpdate('batch_deleted', { 
-      ids, 
-      addresses: whitelistsToDelete.map(w => w.address) 
+    await this.broadcastWhitelistUpdate('batch_deleted', {
+      ids,
+      addresses: whitelistsToDelete.map(w => w.address),
     });
   }
 
   async batchImport(addresses: string[], userId: number): Promise<BlockchainWhitelist[]> {
     const results = [];
     const skippedAddresses = [];
-    
+
     for (const address of addresses) {
       try {
         // Ensure address is a string and generate hash
@@ -127,7 +130,7 @@ export class WhitelistService {
 
         // Check if address already exists
         const existingWhitelist = await this.whitelistRepository.findOne({
-          where: { addressHash }
+          where: { addressHash },
         });
 
         if (existingWhitelist) {
@@ -141,25 +144,25 @@ export class WhitelistService {
           addressHash,
           addressType: 'UNKNOWN', // Default type, should be determined by address format
           isActive: true,
-          createdBy: userId || 1 // Default to user ID 1 if not provided
+          createdBy: userId || 1, // Default to user ID 1 if not provided
         });
 
         const savedWhitelist = await this.whitelistRepository.save(whitelist);
         results.push(savedWhitelist);
       } catch (error) {
-        console.error(`Failed to import address ${address}:`, error);
+        this.logger.error(`Failed to import address ${address}:`, error);
         skippedAddresses.push(address);
       }
     }
-    
+
     // 广播批量导入
     await this.broadcastWhitelistUpdate('batch_imported', {
       count: results.length,
       skipped: skippedAddresses.length,
       addresses: results.map(w => w.address),
-      skippedAddresses
+      skippedAddresses,
     });
-    
+
     return results;
   }
 
@@ -167,26 +170,27 @@ export class WhitelistService {
    * 获取所有激活的白名单地址（供客户端检测使用）
    * 返回简化的地址列表，减少网络传输
    */
-  async getActiveAddresses(): Promise<{ addresses: string[], lastUpdated: Date }> {
-    console.log('🔍 Fetching active addresses from database');
+  async getActiveAddresses(): Promise<{ addresses: string[]; lastUpdated: Date }> {
+    this.logger.debug('Fetching active addresses from database');
     const activeWhitelists = await this.whitelistRepository.find({
       where: { isActive: true },
       select: ['address'],
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
-    
-    console.log(`📊 Found ${activeWhitelists.length} active whitelist addresses`);
-    console.log('🔍 Active addresses:', activeWhitelists.map(item => item.address));
+
+    this.logger.debug(`Found ${activeWhitelists.length} active whitelist addresses`);
+    this.logger.debug(
+      'Active addresses:',
+      activeWhitelists.map(item => item.address),
+    );
 
     const result = {
       addresses: activeWhitelists.map(item => item.address),
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
     };
-    
+
     return result;
   }
-
-
 
   /**
    * 广播白名单更新事件
@@ -195,21 +199,10 @@ export class WhitelistService {
    */
   private async broadcastWhitelistUpdate(action: string, data: any): Promise<void> {
     try {
-      // 获取最新的激活地址列表
-      const activeAddresses = await this.getActiveAddresses();
-      
-      // 广播给所有客户端
-      this.webSocketService.broadcast('whitelist-updated', {
-        action,
-        data,
-        activeAddresses: activeAddresses.addresses,
-        lastUpdated: activeAddresses.lastUpdated,
-        timestamp: new Date()
-      });
-      
-      console.log(`🔄 Whitelist ${action} broadcasted to all clients`);
+      // 注意：WebSocket功能已移除，白名单更新现在通过HTTP API轮询获取
+      this.logger.debug(`Whitelist ${action} update logged (WebSocket broadcast disabled)`);
     } catch (error) {
-      console.error('Failed to broadcast whitelist update:', error);
+      this.logger.error('Failed to log whitelist update:', error);
     }
   }
 }

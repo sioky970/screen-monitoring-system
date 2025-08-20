@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -15,8 +15,6 @@ export class AuthService {
     private clientRepository: Repository<Client>,
     private jwtService: JwtService,
   ) {}
-
-
 
   /**
    * 客户端认证 - 首次运行自动注册
@@ -130,7 +128,7 @@ export class AuthService {
    */
   private async updateClientInfo(client: Client, clientAuthDto: ClientAuthDto) {
     const now = new Date();
-    
+
     // 更新客户端信息（如果提供了新信息）
     if (clientAuthDto.computerName) client.computerName = clientAuthDto.computerName;
     if (clientAuthDto.username) client.username = clientAuthDto.username;
@@ -139,11 +137,11 @@ export class AuthService {
     if (clientAuthDto.osVersion) client.osVersion = clientAuthDto.osVersion;
     if (clientAuthDto.clientVersion) client.clientVersion = clientAuthDto.clientVersion;
     if (clientAuthDto.screenResolution) client.screenResolution = clientAuthDto.screenResolution;
-    
+
     // 更新状态和心跳时间
     client.status = ClientStatus.ONLINE;
     client.lastHeartbeat = now;
-    
+
     await this.clientRepository.save(client);
   }
 
@@ -154,7 +152,7 @@ export class AuthService {
    */
   async adminLogin(adminLoginDto: AdminLoginDto) {
     const { email, password } = adminLoginDto;
-    
+
     // 硬编码的管理员账号（实际项目中应该从数据库获取）
     const adminUser = {
       id: 1,
@@ -162,29 +160,29 @@ export class AuthService {
       email: 'admin@example.com',
       password: 'admin123', // 实际项目中应该是加密后的密码
       role: 'admin',
-      realName: '系统管理员'
+      realName: '系统管理员',
     };
-    
+
     // 验证邮箱
     if (email !== adminUser.email) {
       throw new UnauthorizedException('邮箱或密码错误');
     }
-    
+
     // 验证密码（这里简化处理，实际应该使用bcrypt比较）
     if (password !== adminUser.password) {
       throw new UnauthorizedException('邮箱或密码错误');
     }
-    
+
     // 生成JWT令牌
-    const payload = { 
-      sub: adminUser.id, 
-      email: adminUser.email, 
-      role: adminUser.role 
+    const payload = {
+      sub: adminUser.id,
+      email: adminUser.email,
+      role: adminUser.role,
     };
-    
+
     const access_token = this.jwtService.sign(payload, { expiresIn: '24h' });
     const refresh_token = this.jwtService.sign(payload, { expiresIn: '7d' });
-    
+
     return {
       access_token,
       refresh_token,
@@ -193,8 +191,8 @@ export class AuthService {
         username: adminUser.username,
         email: adminUser.email,
         role: adminUser.role,
-        realName: adminUser.realName
-      }
+        realName: adminUser.realName,
+      },
     };
   }
 
@@ -210,13 +208,13 @@ export class AuthService {
       username: 'admin',
       email: 'admin@example.com',
       role: 'admin',
-      realName: '系统管理员'
+      realName: '系统管理员',
     };
-    
+
     if (userId !== adminUser.id) {
       throw new UnauthorizedException('用户不存在');
     }
-    
+
     return adminUser;
   }
 
@@ -226,12 +224,12 @@ export class AuthService {
    * @param currentPassword 当前密码
    * @param newPassword 新密码
    */
-  async changePassword(userId: number, currentPassword: string, newPassword: string) {
+  async changePassword(userId: number, currentPassword: string, _newPassword: string) {
     // 硬编码验证（实际项目中应该从数据库获取并使用bcrypt）
     if (userId !== 1 || currentPassword !== 'admin123') {
       throw new UnauthorizedException('当前密码错误');
     }
-    
+
     // 这里应该更新数据库中的密码
     // 由于是硬编码，这里只是模拟成功
     return { message: '密码修改成功' };

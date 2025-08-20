@@ -6,7 +6,7 @@ import { Client } from '../../entities/client.entity';
 import { CreateClientConfigDto } from './dto/create-client-config.dto';
 import { UpdateClientConfigDto } from './dto/update-client-config.dto';
 import { QueryClientConfigDto } from './dto/query-client-config.dto';
-import { WebSocketService } from '../websocket/websocket.service';
+
 
 @Injectable()
 export class ClientConfigService {
@@ -15,7 +15,7 @@ export class ClientConfigService {
     private readonly clientConfigRepository: Repository<ClientConfig>,
     @InjectRepository(Client)
     private readonly clientRepository: Repository<Client>,
-    private readonly webSocketService: WebSocketService,
+
   ) {}
 
   /**
@@ -203,37 +203,15 @@ export class ClientConfigService {
   /**
    * 广播配置更新到客户端
    */
-  private async broadcastConfigUpdate(clientId: string, config: ClientConfig | null): Promise<void> {
+  private async broadcastConfigUpdate(
+    clientId: string,
+    config: ClientConfig | null,
+  ): Promise<void> {
     try {
-      if (config) {
-        // 发送配置更新事件
-        await this.webSocketService.sendToClient(clientId, 'config-updated', {
-          config: {
-            screenshotInterval: config.screenshotInterval,
-            heartbeatInterval: config.heartbeatInterval,
-            whitelistSyncInterval: config.whitelistSyncInterval,
-            imageCompressionLimit: config.imageCompressionLimit,
-            imageQuality: config.imageQuality,
-            clearClipboardOnViolation: config.clearClipboardOnViolation,
-            enableRealTimeMonitoring: config.enableRealTimeMonitoring,
-            enableClipboardMonitoring: config.enableClipboardMonitoring,
-            enableBlockchainDetection: config.enableBlockchainDetection,
-            maxRetryAttempts: config.maxRetryAttempts,
-            networkTimeout: config.networkTimeout,
-            enableAutoReconnect: config.enableAutoReconnect,
-            reconnectInterval: config.reconnectInterval,
-            extendedSettings: config.extendedSettings,
-          },
-          timestamp: new Date().toISOString(),
-        });
-      } else {
-        // 发送配置删除事件
-        await this.webSocketService.sendToClient(clientId, 'config-deleted', {
-          timestamp: new Date().toISOString(),
-        });
-      }
+      // 注意：WebSocket功能已移除，配置更新现在通过HTTP API轮询获取
+      console.log(`配置更新已记录 - 客户端: ${clientId} (WebSocket广播已禁用)`);
     } catch (error) {
-      console.error(`广播配置更新失败 - 客户端: ${clientId}`, error);
+      console.error(`记录配置更新失败 - 客户端: ${clientId}`, error);
     }
   }
 
@@ -242,7 +220,7 @@ export class ClientConfigService {
    */
   async getClientEffectiveConfig(clientId: string): Promise<any> {
     const config = await this.findByClientId(clientId);
-    
+
     return {
       screenshotInterval: config.screenshotInterval,
       heartbeatInterval: config.heartbeatInterval,

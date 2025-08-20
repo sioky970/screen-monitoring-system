@@ -8,6 +8,9 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import helmet from 'helmet';
 import * as compression from 'compression';
+import { join } from 'path';
+import * as express from 'express';
+import { existsSync, mkdirSync } from 'fs';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -17,6 +20,13 @@ async function bootstrap() {
   app.use(helmet());
   app.use(compression());
 
+  // 静态文件服务 - 处理storage目录
+  const storageDir = join(process.cwd(), 'storage');
+  if (!existsSync(storageDir)) {
+    mkdirSync(storageDir, { recursive: true });
+  }
+  app.use('/storage', express.static(storageDir));
+
   // 跨域配置
   app.enableCors({
     origin: [
@@ -24,7 +34,7 @@ async function bootstrap() {
       'http://127.0.0.1:47827',
       'http://localhost:47830',
       'http://127.0.0.1:47830',
-      configService.get('CORS_ORIGIN', '*')
+      configService.get('CORS_ORIGIN', '*'),
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -45,21 +55,19 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   // 全局拦截器
-  app.useGlobalInterceptors(
-    new LoggingInterceptor(),
-    new TransformInterceptor(),
-  );
+  app.useGlobalInterceptors(new LoggingInterceptor(), new TransformInterceptor());
 
   // API前缀
   app.setGlobalPrefix('api', {
-    exclude: ['/health', '/']
+    exclude: ['/health', '/'],
   });
 
   // Swagger API文档
   if (configService.get('NODE_ENV') !== 'production') {
     const config = new DocumentBuilder()
       .setTitle('📻 屏幕监控系统 API')
-      .setDescription(`
+      .setDescription(
+        `
         一个基于 NestJS 构建的企业级屏幕监控和安全防护系统。
         
         ✨ **主要功能**
@@ -81,15 +89,12 @@ async function bootstrap() {
         - MinIO 对象存储
         - Socket.IO WebSocket
         - JWT 认证
-      `)
-      .setVersion('1.0.0')
-      .setContact(
-        '开发团队',
-        'https://github.com/your-org/screen-monitor',
-        'dev@yourcompany.com'
+      `,
       )
+      .setVersion('1.0.0')
+      .setContact('开发团队', 'https://github.com/your-org/screen-monitor', 'dev@yourcompany.com')
       .setLicense('MIT', 'https://opensource.org/licenses/MIT')
-      .addServer('http://localhost:3001', '开发环境')
+      .addServer('http://localhost:3003', '开发环境')
       .addServer('https://api.yourcompany.com', '生产环境')
       .addBearerAuth(
         {
@@ -124,7 +129,7 @@ async function bootstrap() {
     const document = SwaggerModule.createDocument(app, config, {
       operationIdFactory: (controllerKey: string, methodKey: string) => methodKey,
     });
-    
+
     // 添加自定义 CSS 和 JS
     SwaggerModule.setup('api/docs', app, document, {
       customSiteTitle: '💻 屏幕监控系统 API 文档',
@@ -156,7 +161,9 @@ async function bootstrap() {
       `,
     });
 
-    console.log('📚 API 文档已启用: http://localhost:' + configService.get('PORT', 3001) + '/api/docs');
+    console.log(
+      '📚 API 文档已启用: http://localhost:' + configService.get('PORT', 3001) + '/api/docs',
+    );
   }
 
   // 健康检查端点
@@ -170,12 +177,12 @@ async function bootstrap() {
     });
   });
 
-  const port = configService.get('PORT', 3000);
+  const port = configService.get('PORT', 3003);
   await app.listen(port, '0.0.0.0');
-  
+
   const nodeEnv = configService.get('NODE_ENV', 'development');
   const isProduction = nodeEnv === 'production';
-  
+
   console.log(`
 ┌──────────────────────────────────────────────────────┐
 │  💻 屏幕监控系统后端服务  v1.0.0                   │
@@ -185,12 +192,13 @@ async function bootstrap() {
 │  🌐 API 地址: http://localhost:${port}/api          │
 │  ${!isProduction ? '📚 API 文档: http://localhost:' + port + '/api/docs' : '📚 API 文档: 生产环境下已禁用'}│
 │  💚 健康检查: http://localhost:${port}/health       │
-│  📡 WebSocket: ws://localhost:${configService.get('WS_PORT', 3005)}/monitor        │
+│  🗄️  数据库状态: http://localhost:${port}/api/system/database/status │
 │  🔧 运行环境: ${nodeEnv}                              │
 │                                                    │
 │  🛠️  技术栈: NestJS + TypeScript + MySQL + Redis  │
 │  🔒 认证方式: JWT Bearer Token                     │
-│  📊 实时通信: Socket.IO WebSocket                 │
+│  📊 实时通信: HTTP轮询机制 (WebSocket已移除)        │
+│  🔄 数据库同步: ${configService.get('DB_SYNCHRONIZE', 'true') === 'true' ? '启用' : '禁用'}                     │
 └──────────────────────────────────────────────────────┘
 `);
 }

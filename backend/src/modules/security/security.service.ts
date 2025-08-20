@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, In } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
-import { SecurityScreenshot, AlertStatus } from '../../entities/security-screenshot.entity';
+import { SecurityScreenshot, AlertStatus, RiskLevel } from '../../entities/security-screenshot.entity';
 import { Notification, NotificationType } from '../../entities/notification.entity';
 import { SystemLog } from '../../entities/system-log.entity';
 import { BlockchainWhitelist } from '../../entities/blockchain-whitelist.entity';
@@ -12,7 +12,8 @@ import { UpdateAlertStatusDto } from './dto/update-alert-status.dto';
 import { QuerySecurityAlertsDto } from './dto/query-security-alerts.dto';
 import { ScreenshotUploadDto } from './dto/screenshot-upload.dto';
 import { MinioService } from '../../common/services/minio.service';
-import { WebSocketService } from '../websocket/websocket.service';
+import { ClientsService } from '../clients/clients.service';
+
 import { RedisService } from '../../common/services/redis.service';
 import { DateService } from '../../common/services/date.service';
 
@@ -32,7 +33,8 @@ export class SecurityService {
     @InjectRepository(Client)
     private readonly clientRepository: Repository<Client>,
     private readonly minioService: MinioService,
-    private readonly webSocketService: WebSocketService,
+    private readonly clientsService: ClientsService,
+
     private readonly redisService: RedisService,
     private readonly dateService: DateService,
   ) {}
@@ -40,22 +42,15 @@ export class SecurityService {
   // ========== 安全告警管理 ==========
 
   async findAllAlerts(query: QuerySecurityAlertsDto = {}): Promise<{
-    alerts: SecurityScreenshot[],
-    total: number,
-    page: number,
-    pageSize: number,
+    alerts: SecurityScreenshot[];
+    total: number;
+    page: number;
+    pageSize: number;
   }> {
-    const {
-      page = 1,
-      pageSize = 20,
-      clientId,
-      alertType,
-      status,
-      startDate,
-      endDate
-    } = query;
+    const { page = 1, pageSize = 20, clientId, alertType, status, startDate, endDate } = query;
 
-    const queryBuilder = this.screenshotRepository.createQueryBuilder('screenshot')
+    const queryBuilder = this.screenshotRepository
+      .createQueryBuilder('screenshot')
       .leftJoinAndSelect('screenshot.client', 'client');
 
     if (clientId) {
@@ -91,38 +86,41 @@ export class SecurityService {
     };
   }
 
-  async findAlertById(id: number): Promise<SecurityScreenshot> {
-    const alert = await this.screenshotRepository.findOne({
-      where: { id },
-      relations: ['client'],
+
+
+  /**
+   * 验证客户端是否存在
+   * @param clientId 客户端ID
+   * @returns 客户端实体
+   * @throws NotFoundException 如果客户端不存在
+   */
+  private async validateClientExists(clientId: string): Promise<Client> {
+    const client = await this.clientRepository.findOne({
+      where: { id: clientId },
     });
 
-    if (!alert) {
-      throw new NotFoundException('安全告警不存在');
+    if (!client) {
+      throw new NotFoundException(`客户端 ${clientId} 不存在`);
     }
 
-    return alert;
+    return client;
   }
 
   async createSecurityAlert(createAlertDto: CreateSecurityAlertDto): Promise<SecurityScreenshot> {
     // 验证客户端是否存在
-    const client = await this.clientRepository.findOne({
-      where: { id: createAlertDto.clientId },
-    });
-
-    if (!client) {
-      throw new NotFoundException('客户端不存在');
-    }
+    const client = await this.validateClientExists(createAlertDto.clientId);
 
     // 生成截图URL
     let fileUrl = createAlertDto.screenshotPath || '';
-    
+
     // 如果没有提供截图路径，尝试生成当前截图的URL
     if (!fileUrl) {
       try {
         fileUrl = await this.minioService.getCurrentScreenshotUrl(createAlertDto.clientId);
       } catch (error) {
-        this.logger.warn(`无法获取客户端 ${createAlertDto.clientId} 的当前截图URL: ${error.message}`);
+        this.logger.warn(
+          `无法获取客户端 ${createAlertDto.clientId} 的当前截图URL: ${error.message}`,
+        );
         fileUrl = '';
       }
     }
@@ -144,18 +142,7 @@ export class SecurityService {
 
     const savedAlert = await this.screenshotRepository.save(alert);
 
-    // 发送 WebSocket 通知
-    this.webSocketService.emitSecurityAlert({
-      id: savedAlert.id,
-      clientId: savedAlert.clientId,
-      addressType: savedAlert.addressType,
-      detectedAddress: savedAlert.detectedAddress,
-      createdAt: savedAlert.createdAt,
-      client: {
-        clientNumber: client.clientNumber,
-        computerName: client.computerName,
-      },
-    });
+    // 注意：WebSocket功能已移除，安全告警通知现在通过HTTP API轮询获取
 
     // 创建系统通知
     await this.createNotification(
@@ -174,31 +161,65 @@ export class SecurityService {
     return this.findAlertById(savedAlert.id);
   }
 
-  async updateAlertStatus(id: number, updateStatusDto: UpdateAlertStatusDto, userId?: number): Promise<SecurityScreenshot> {
-    const alert = await this.findAlertById(id);
+  async findAlertById(id: number): Promise<SecurityScreenshot> {
+    const alert = await this.screenshotRepository.findOne({
+      where: { id },
+      relations: ['client'],
+    });
 
-    await this.screenshotRepository.update(id, {
-      alertStatus: updateStatusDto.status,
+    if (!alert) {
+      throw new NotFoundException(`安全告警 ${id} 不存在`);
+    }
+
+    return alert;
+  }
+
+  async findAlertByAlertId(alertId: string): Promise<SecurityScreenshot> {
+    const alert = await this.screenshotRepository.findOne({
+      where: { alertId },
+      relations: ['client'],
+    });
+
+    if (!alert) {
+      throw new NotFoundException(`安全告警 ${alertId} 不存在`);
+    }
+
+    return alert;
+  }
+
+  async updateAlertStatus(
+    alertId: string,
+    status: AlertStatus,
+    remark?: string,
+    userId?: number,
+  ): Promise<SecurityScreenshot> {
+    const alert = await this.findAlertByAlertId(alertId); // 验证alert存在
+
+    await this.screenshotRepository.update(alert.id, {
+      alertStatus: status,
       reviewedBy: userId || null,
-      reviewedAt: updateStatusDto.status !== AlertStatus.PENDING ? new Date() : null,
-      reviewNote: updateStatusDto.remark,
+      reviewedAt: status !== AlertStatus.PENDING ? new Date() : null,
+      reviewNote: remark,
     });
 
     // 记录系统日志
     await this.logSecurityEvent(
       'SECURITY_ALERT_UPDATED',
-      `更新安全告警状态: ${updateStatusDto.status}`,
-      id.toString(),
+      `更新安全告警状态: ${status}`,
+      alert.id.toString(),
       userId,
     );
 
-    return this.findAlertById(id);
+    return this.findAlertByAlertId(alertId);
   }
 
   /**
    * 忽略指定客户端的全部未处理违规（pending/confirmed）
    */
-  async ignoreAllAlertsForClient(clientId: string, userId?: number): Promise<{
+  async ignoreAllAlertsForClient(
+    clientId: string,
+    userId?: number,
+  ): Promise<{
     success: boolean;
     affected: number;
     message: string;
@@ -207,13 +228,7 @@ export class SecurityService {
   }> {
     try {
       // 验证客户端是否存在
-      const client = await this.clientRepository.findOne({
-        where: { id: clientId },
-      });
-
-      if (!client) {
-        throw new NotFoundException(`客户端 ${clientId} 不存在`);
-      }
+      const client = await this.validateClientExists(clientId);
 
       // 先查询要更新的记录数量，用于日志记录
       const pendingAlerts = await this.screenshotRepository.count({
@@ -234,7 +249,8 @@ export class SecurityService {
       }
 
       // 批量更新违规状态
-      const result = await this.screenshotRepository.createQueryBuilder()
+      const result = await this.screenshotRepository
+        .createQueryBuilder()
         .update(SecurityScreenshot)
         .set({
           alertStatus: AlertStatus.IGNORED,
@@ -244,7 +260,7 @@ export class SecurityService {
         })
         .where('client_id = :clientId', { clientId })
         .andWhere('alert_status IN (:...statuses)', {
-          statuses: [AlertStatus.PENDING, AlertStatus.CONFIRMED]
+          statuses: [AlertStatus.PENDING, AlertStatus.CONFIRMED],
         })
         .execute();
 
@@ -258,11 +274,7 @@ export class SecurityService {
         userId,
       );
 
-      // 发送WebSocket通知更新客户端状态
-      this.webSocketService.emitClientStatus(clientId, {
-        alertCount: 0, // 忽略后违规数量归零
-        lastUpdate: new Date(),
-      });
+      // 注意：WebSocket功能已移除，客户端状态更新现在通过HTTP API轮询获取
 
       return {
         success: true,
@@ -271,7 +283,6 @@ export class SecurityService {
         clientId,
         timestamp: new Date(),
       };
-
     } catch (error) {
       this.logger.error(`批量忽略违规事件失败: ${error.message}`, error.stack);
       throw error;
@@ -286,7 +297,7 @@ export class SecurityService {
       try {
         await this.minioService.deleteFile(alert.minioObjectKey);
       } catch (error) {
-        console.error('删除截图文件失败:', error);
+        this.logger.error('删除截图文件失败:', error);
       }
     }
 
@@ -303,48 +314,49 @@ export class SecurityService {
 
   // ========== 截图上传和处理 ==========
 
-  async uploadScreenshot(uploadDto: ScreenshotUploadDto, file: Express.Multer.File): Promise<{
-    url: string,
-    path: string,
-    alertUrl?: string,
-    isArchived: boolean,
-  }> {
-    // 检测是否包含区块链地址（用于判断是否为安全告警）
-    const blockchainAddresses = await this.detectBlockchainAddresses(uploadDto.clipboardContent || '');
-    const hasBlockchainAddress = blockchainAddresses.length > 0;
-
-    // 使用混合存储策略上传截图
-    const uploadResult = await this.minioService.uploadScreenshot(
-      uploadDto.clientId,
-      file.buffer,
-      hasBlockchainAddress, // 如果检测到区块链地址，则保存为告警截图
-    );
-
-    return {
-      url: uploadResult.currentUrl,
-      path: uploadResult.currentUrl,
-      alertUrl: uploadResult.alertUrl,
-      isArchived: uploadResult.isArchived,
-    };
-  }
-
   async processScreenshotUpload(
     clientId: string,
     screenshotPath: string,
-    clipboardContent?: string
+    clipboardContent?: string,
+    detectedAddresses?: string,
+    hasViolations?: boolean,
   ): Promise<void> {
-    this.logger.debug(`处理截图内容检测: 客户端=${clientId}, 剪贴板内容长度=${clipboardContent?.length || 0}`);
-    
+    this.logger.debug(
+      `处理截图内容检测: 客户端=${clientId}, 剪贴板内容长度=${clipboardContent?.length || 0}, 客户端检测结果=${hasViolations ? '有违规' : '无违规'}`,
+    );
+
+    // 如果客户端已经检测到违规地址，直接使用客户端的检测结果
+    if (hasViolations && detectedAddresses) {
+      this.logger.debug(`使用客户端检测结果: 违规地址=${detectedAddresses}`);
+      const addresses = detectedAddresses.split(',').filter(addr => addr.trim());
+
+      for (const address of addresses) {
+        await this.createSecurityAlert({
+          clientId,
+          alertType: AlertType.BLOCKCHAIN_ADDRESS,
+          blockchainAddress: address.trim(),
+          screenshotPath,
+          clipboardContent,
+        });
+      }
+      return;
+    }
+
+    // 如果客户端没有检测到违规，且没有剪贴板内容，跳过检测
     if (!clipboardContent) {
       this.logger.debug(`剪贴板内容为空，跳过检测: 客户端=${clientId}`);
       return;
     }
 
-    this.logger.debug(`剪贴板内容: ${clipboardContent.substring(0, 200)}...`);
+    // 后备方案：服务端检测（仅在客户端未提供检测结果时使用）
+    this.logger.debug(
+      `客户端未提供检测结果，使用服务端检测: 剪贴板内容=${clipboardContent.substring(0, 200)}...`,
+    );
 
-    // 检测区块链地址
     const blockchainAddresses = await this.detectBlockchainAddresses(clipboardContent);
-    this.logger.debug(`检测到区块链地址数量: ${blockchainAddresses.length}, 地址: ${JSON.stringify(blockchainAddresses)}`);
+    this.logger.debug(
+      `服务端检测到区块链地址数量: ${blockchainAddresses.length}, 地址: ${JSON.stringify(blockchainAddresses)}`,
+    );
 
     if (blockchainAddresses.length > 0) {
       for (const address of blockchainAddresses) {
@@ -413,11 +425,16 @@ export class SecurityService {
   /**
    * 获取客户端的告警截图历史
    */
-  async getAlertScreenshots(clientId: string, limit = 50): Promise<Array<{
-    url: string;
-    timestamp: Date;
-    key: string;
-  }>> {
+  async getAlertScreenshots(
+    clientId: string,
+    limit = 50,
+  ): Promise<
+    Array<{
+      url: string;
+      timestamp: Date;
+      key: string;
+    }>
+  > {
     return this.minioService.getAlertScreenshots(clientId, limit);
   }
 
@@ -453,12 +470,12 @@ export class SecurityService {
   // ========== 统计信息 ==========
 
   async getSecurityStats(): Promise<{
-    totalAlerts: number,
-    pendingAlerts: number,
-    resolvedAlerts: number,
-    ignoredAlerts: number,
-    todayAlerts: number,
-    alertsByType: Record<string, number>,
+    totalAlerts: number;
+    pendingAlerts: number;
+    resolvedAlerts: number;
+    ignoredAlerts: number;
+    todayAlerts: number;
+    alertsByType: Record<string, number>;
   }> {
     const today = this.dateService.getStartOfDay(new Date());
     const tomorrow = this.dateService.getEndOfDay(new Date());
@@ -516,14 +533,7 @@ export class SecurityService {
 
     await this.notificationRepository.save(notification);
 
-    // WebSocket 通知
-    this.webSocketService.emitSystemNotification({
-      id: notification.id,
-      title,
-      content,
-      type,
-      createdAt: notification.createdAt,
-    });
+    // 注意：WebSocket功能已移除，系统通知现在通过HTTP API轮询获取
   }
 
   private async logSecurityEvent(
@@ -541,5 +551,72 @@ export class SecurityService {
     });
 
     await this.systemLogRepository.save(log);
+  }
+
+  // ========== 截图上传处理 ==========
+
+  async uploadScreenshot(
+    uploadDto: ScreenshotUploadDto,
+    file: Express.Multer.File,
+  ): Promise<{
+    success: boolean;
+    path: string;
+    url: string;
+    isArchived: boolean;
+    clientId: string;
+  }> {
+    try {
+      // 1. 处理客户端心跳和注册
+      await this.clientsService.handleHeartbeat({
+        clientId: uploadDto.clientId,
+        // 可以从请求中获取更多信息，这里先使用基本信息
+      });
+
+      // 2. 上传截图到MinIO
+      const fileName = `current.jpg`;
+      const uploadResult = await this.minioService.uploadFile(
+        file.buffer,
+        fileName,
+        file.mimetype,
+        `screenshots/${uploadDto.clientId}`,
+        true, // 强制覆盖
+      );
+
+      // 3. 保存截图记录到数据库
+      const screenshot = this.screenshotRepository.create({
+        alertId: uuidv4(),
+        clientId: uploadDto.clientId,
+        minioBucket: uploadResult.bucket,
+        minioObjectKey: uploadResult.key,
+        fileUrl: uploadResult.url,
+        fileSize: file.size,
+        screenshotTime: new Date(),
+        clipboardContent: uploadDto.clipboardContent || '',
+        detectedAddress: uploadDto.detectedAddresses || '',
+        addressType: 'UNKNOWN',
+        riskLevel: uploadDto.hasViolations ? RiskLevel.HIGH : RiskLevel.LOW,
+        alertStatus: uploadDto.hasViolations ? AlertStatus.PENDING : AlertStatus.IGNORED,
+      });
+
+      await this.screenshotRepository.save(screenshot);
+
+      this.logger.debug(
+        `截图上传成功: 客户端=${uploadDto.clientId}, 文件=${uploadResult.key}, 大小=${file.size}`,
+      );
+
+      return {
+        success: true,
+        path: uploadResult.key,
+        url: uploadResult.url,
+        isArchived: false,
+        clientId: uploadDto.clientId,
+      };
+    } catch (error) {
+      this.logger.error(
+        `截图上传失败: 客户端=${uploadDto.clientId}, 错误=${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
   }
 }

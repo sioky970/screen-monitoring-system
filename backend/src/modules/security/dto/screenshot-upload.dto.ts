@@ -1,5 +1,6 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 
 export class ScreenshotUploadDto {
   @ApiProperty({ description: '客户端ID' })
@@ -11,4 +12,20 @@ export class ScreenshotUploadDto {
   @IsOptional()
   @IsString()
   clipboardContent?: string;
+
+  @ApiPropertyOptional({ description: '检测到的区块链地址（逗号分隔）' })
+  @IsOptional()
+  @IsString()
+  detectedAddresses?: string;
+
+  @ApiPropertyOptional({ description: '是否检测到违规地址' })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.toLowerCase() === 'true';
+    }
+    return Boolean(value);
+  })
+  @IsBoolean()
+  hasViolations?: boolean;
 }

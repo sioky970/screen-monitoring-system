@@ -6,10 +6,6 @@ interface Client {
   id: string
   clientNumber: string
   computerName: string
-  ip?: string
-  mac?: string
-  os?: string
-  version?: string
   status: 'online' | 'offline' | 'error' | 'installing'
   lastSeen?: string
   group?: {
@@ -112,9 +108,6 @@ export function useClients() {
           existing.status = inc.status
           existing.clientNumber = inc.clientNumber ?? existing.clientNumber
           existing.computerName = inc.computerName ?? existing.computerName
-          existing.ip = inc.ip ?? existing.ip
-          existing.os = inc.os ?? existing.os
-          existing.version = inc.version ?? existing.version
           existing.lastSeen = inc.lastSeen ?? existing.lastSeen
           existing.alertCount = inc.alertCount
           existing.latestScreenshotUrl = inc.latestScreenshotUrl
@@ -197,12 +190,7 @@ export function useClients() {
       client.lastSeen = statusData.timestamp || statusData.lastHeartbeat
       ;(client as any).lastStatusUpdate = Date.now()
       
-      // 如果状态对象包含其他信息，也更新它们
-      if (typeof statusData === 'object') {
-        if (statusData.ipAddress) {
-          client.ip = statusData.ipAddress
-        }
-      }
+      // 状态更新完成
     } else {
       // 若列表中不存在，增量插入占位对象
       clients.value.push({

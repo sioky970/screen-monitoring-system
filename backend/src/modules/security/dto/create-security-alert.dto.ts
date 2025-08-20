@@ -14,10 +14,10 @@ export class CreateSecurityAlertDto {
   @IsNotEmpty({ message: '客户端ID不能为空' })
   clientId: string;
 
-  @ApiProperty({ 
-    description: '告警类型', 
+  @ApiProperty({
+    description: '告警类型',
     enum: AlertType,
-    enumName: 'AlertType'
+    enumName: 'AlertType',
   })
   @IsEnum(AlertType)
   alertType: AlertType;

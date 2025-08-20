@@ -7,7 +7,10 @@ import { ConfigService } from '@nestjs/config';
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private configService: ConfigService) {
     const secret = configService.get<string>('JWT_SECRET') || 'screen-monitoring-secret-key';
-    console.log('JWT Strategy - constructor - JWT_SECRET:', configService.get<string>('JWT_SECRET'));
+    console.log(
+      'JWT Strategy - constructor - JWT_SECRET:',
+      configService.get<string>('JWT_SECRET'),
+    );
     console.log('JWT Strategy - constructor - using secret:', secret);
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -22,13 +25,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     console.log('JWT Strategy - validate - JWT_SECRET:', process.env.JWT_SECRET);
     console.log('JWT Strategy - validate - payload.sub type:', typeof payload.sub);
     console.log('JWT Strategy - validate - payload.sub value:', payload.sub);
-    
+
     const user = {
       id: payload.sub,
       email: payload.email,
       role: payload.role,
     };
-    
+
     console.log('JWT Strategy - validate - returning user:', JSON.stringify(user));
     console.log('=== JWT Strategy - validate END ===');
     return user;

@@ -18,6 +18,7 @@ export default defineConfig({
       resolvers: [
         AntDesignVueResolver({
           importStyle: false,
+          resolveIcons: true,
         }),
       ],
       dts: true,
@@ -34,19 +35,14 @@ export default defineConfig({
     proxy: {
       // 允许通过环境变量覆盖后端地址，方便在反向代理/不同环境下运行
       '/api': {
-        target: process.env.VITE_BACKEND_ORIGIN || 'http://localhost:3000',
+        target: process.env.VITE_BACKEND_ORIGIN || 'http://localhost:3001',
         changeOrigin: true,
       },
-      '/socket.io': {
-        target: process.env.VITE_BACKEND_ORIGIN || 'http://localhost:3000',
-        changeOrigin: true,
-        ws: true,
-      },
-      // 本地开发时，把 /storage 代理到 MinIO，使截图 URL 可访问
+      // 本地开发时，把 /storage 代理到后端文件代理API，使截图 URL 可访问
       '/storage': {
-        target: 'http://localhost:9000',
+        target: process.env.VITE_BACKEND_ORIGIN || 'http://localhost:3001',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/storage/, ''),
+        rewrite: (path) => path.replace(/^\/storage/, '/api/files/proxy'),
       }
     }
   }

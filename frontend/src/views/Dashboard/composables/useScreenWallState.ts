@@ -115,7 +115,8 @@ export function useScreenWallState() {
     clientDetailVisible,
     selectedClient,
     screenshotModalVisible,
-    screenshotModalData,
+    screenshotModalTitle: computed(() => screenshotModalData.value.title),
+    currentScreenshotUrl: computed(() => screenshotModalData.value.url),
     
     // 计算属性
     screenWallStyle,
@@ -132,6 +133,6 @@ export function useScreenWallState() {
     handleGridLayoutChange,
     toggleFullscreen,
     showClientDetail,
-    showScreenshot
+    showScreenshotModal: showScreenshot
   }
 }

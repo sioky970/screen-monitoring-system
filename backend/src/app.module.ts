@@ -21,7 +21,7 @@ import { WhitelistModule } from './modules/whitelist/whitelist.module';
 import { SystemModule } from './modules/system/system.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { FilesModule } from './modules/files/files.module';
-import { WebSocketModule } from './modules/websocket/websocket.module';
+
 import { JwtGlobalAuthGuard } from './modules/auth/guards/jwt-global.guard';
 import { StaticFilterMiddleware } from './common/middleware/static-filter.middleware';
 import { LogFilterExceptionFilter } from './common/filters/log-filter.filter';
@@ -75,7 +75,6 @@ import { LogFilterExceptionFilter } from './common/filters/log-filter.filter';
     SystemModule,
     NotificationsModule,
     FilesModule,
-    WebSocketModule,
   ],
   controllers: [],
   providers: [
@@ -92,8 +91,6 @@ import { LogFilterExceptionFilter } from './common/filters/log-filter.filter';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     // 注册静态文件过滤中间件，应用到所有路由
-    consumer
-      .apply(StaticFilterMiddleware)
-      .forRoutes('*');
+    consumer.apply(StaticFilterMiddleware).forRoutes('*');
   }
 }

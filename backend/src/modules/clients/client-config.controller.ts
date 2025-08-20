@@ -93,10 +93,7 @@ export class ClientConfigController {
   @ApiResponse({ status: 200, description: '更新成功' })
   @ApiResponse({ status: 400, description: '请求参数错误' })
   @ApiResponse({ status: 404, description: '配置不存在' })
-  async update(
-    @Param('id') id: string,
-    @Body() updateDto: UpdateClientConfigDto,
-  ) {
+  async update(@Param('id') id: string, @Body() updateDto: UpdateClientConfigDto) {
     const updatedConfig = await this.clientConfigService.update(parseInt(id), updateDto);
     return {
       code: 200,
@@ -111,9 +108,7 @@ export class ClientConfigController {
   @ApiResponse({ status: 200, description: '批量更新成功' })
   @ApiResponse({ status: 400, description: '请求参数错误' })
   @HttpCode(HttpStatus.OK)
-  async batchUpdate(
-    @Body() body: { clientIds: string[]; config: Partial<UpdateClientConfigDto> },
-  ) {
+  async batchUpdate(@Body() body: { clientIds: string[]; config: Partial<UpdateClientConfigDto> }) {
     await this.clientConfigService.batchUpdate(body.clientIds, body.config);
     return {
       code: 200,
@@ -157,12 +152,12 @@ export class ClientConfigController {
   async resetToDefault(@Param('clientId') clientId: string) {
     const defaultConfig = this.clientConfigService.getDefaultConfig();
     const config = await this.clientConfigService.findByClientId(clientId);
-    
+
     const updateDto: UpdateClientConfigDto = {
       ...defaultConfig,
       remark: '重置为默认配置',
     };
-    
+
     const updatedConfig = await this.clientConfigService.update(config.id, updateDto);
     return {
       code: 200,

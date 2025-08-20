@@ -228,8 +228,8 @@ export function generateSVGPlaceholder(options: PlaceholderOptions = {}): string
 export function generateClientPlaceholder(client: any): string {
   const computerName = client.computerName || client.username || `Client ${client.id?.slice(0, 8) || 'Unknown'}`
   const statusText = getClientStatusText(client.status)
-  const additionalInfo = `状态: ${statusText} | IP: ${client.ipAddress || 'N/A'}`
-  
+  const additionalInfo = `状态: ${statusText}`
+
   return generatePlaceholderImage({
     text: computerName,
     additionalInfo,

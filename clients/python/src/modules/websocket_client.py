@@ -48,6 +48,9 @@ class WebSocketClient:
             engineio_logger=False
         )
         
+        # 设置namespace
+        self.namespace = '/monitor'
+        
         # 连接状态
         self._connected = False
         self._running = False
@@ -80,6 +83,9 @@ class WebSocketClient:
             
             # 发送客户端注册信息
             await self._register_client()
+            
+            # 加入客户端房间
+            await self._join_client_room()
         
         @self.sio.event
         async def disconnect():
@@ -119,6 +125,18 @@ class WebSocketClient:
             """心跳响应事件"""
             self._stats['messages_received'] += 1
             self.logger.debug("收到心跳响应")
+        
+        @self.sio.event
+        async def room_joined(data):
+            """房间加入成功事件"""
+            self._stats['messages_received'] += 1
+            self.logger.info(f"成功加入房间: {data.get('room', 'unknown')}")
+        
+        @self.sio.event
+        async def connection_success(data):
+            """连接成功确认事件"""
+            self._stats['messages_received'] += 1
+            self.logger.info(f"连接成功确认: {data.get('clientId', 'unknown')}")
     
     async def start(self) -> None:
         """启动WebSocket客户端"""
@@ -165,6 +183,7 @@ class WebSocketClient:
     
     async def _connect(self) -> None:
         """连接到WebSocket服务器"""
+        # 使用基础URL
         url = self.config.server.websocket_url
         
         # 连接参数
@@ -176,13 +195,15 @@ class WebSocketClient:
         
         try:
             self._stats['connection_attempts'] += 1
-            self.logger.info(f"正在连接到WebSocket服务器: {url}")
+            self.logger.info(f"正在连接到WebSocket服务器: {url} (namespace: {self.namespace})")
             
+            # 连接到指定的namespace
             await self.sio.connect(
                 url,
                 auth=auth,
                 transports=['websocket'],
-                wait_timeout=self.config.server.timeout
+                wait_timeout=self.config.server.timeout,
+                namespaces=[self.namespace]
             )
             
         except Exception as e:
@@ -206,12 +227,26 @@ class WebSocketClient:
                 'timestamp': datetime.now().isoformat()
             }
             
-            await self.sio.emit('client_register', registration_data)
+            await self.sio.emit('client_register', registration_data, namespace=self.namespace)
             self._stats['messages_sent'] += 1
             self.logger.info("客户端注册信息已发送")
             
         except Exception as e:
             self.logger.error(f"客户端注册失败: {e}")
+    
+    async def _join_client_room(self) -> None:
+        """加入客户端房间"""
+        try:
+            room_data = {
+                'clientId': self.client_id
+            }
+            
+            await self.sio.emit('join-client-room', room_data, namespace=self.namespace)
+            self._stats['messages_sent'] += 1
+            self.logger.info(f"已请求加入客户端房间: {self.client_id}")
+            
+        except Exception as e:
+            self.logger.error(f"加入客户端房间失败: {e}")
     
     async def _heartbeat_task(self) -> None:
         """心跳任务"""
@@ -245,7 +280,7 @@ class WebSocketClient:
                 'status': 'active'
             }
             
-            await self.sio.emit('heartbeat', heartbeat_data)
+            await self.sio.emit('heartbeat', heartbeat_data, namespace=self.namespace)
             self._stats['heartbeats_sent'] += 1
             self._stats['messages_sent'] += 1
             self.logger.debug("心跳已发送")
@@ -269,7 +304,7 @@ class WebSocketClient:
                 'timestamp': datetime.now().isoformat()
             }
             
-            await self.sio.emit('screenshot_response', response_data)
+            await self.sio.emit('screenshot_response', response_data, namespace=self.namespace)
             self._stats['messages_sent'] += 1
             
         except Exception as e:
@@ -295,7 +330,7 @@ class WebSocketClient:
                 'timestamp': datetime.now().isoformat()
             }
             
-            await self.sio.emit('whitelist_update_response', response_data)
+            await self.sio.emit('whitelist_update_response', response_data, namespace=self.namespace)
             self._stats['messages_sent'] += 1
             
         except Exception as e:
@@ -319,7 +354,7 @@ class WebSocketClient:
                 'timestamp': datetime.now().isoformat()
             }
             
-            await self.sio.emit('config_update_response', response_data)
+            await self.sio.emit('config_update_response', response_data, namespace=self.namespace)
             self._stats['messages_sent'] += 1
             
         except Exception as e:
@@ -340,7 +375,7 @@ class WebSocketClient:
             return False
         
         try:
-            await self.sio.emit(event, data)
+            await self.sio.emit(event, data, namespace=self.namespace)
             self._stats['messages_sent'] += 1
             self.logger.debug(f"消息已发送: {event}")
             return True

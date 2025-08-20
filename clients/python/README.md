@@ -48,19 +48,110 @@ pip install -r requirements.txt
 
 ### 3. 配置设置
 
-编辑配置文件 `config/config.yaml`：
+#### 测试环境配置（默认）
+
+默认的 `config/config.yaml` 已配置为连接本地测试服务器：
 
 ```yaml
 server:
-  host: "your-server-host"  # 修改为实际服务器地址
-  port: 8080
-  api_base: "/api/v1"
-  websocket_path: "/ws"
+  # 测试环境（本地开发）
+  api_base_url: "http://localhost:3000/api"
+  websocket_url: "ws://localhost:3000/monitor"
+```
 
-client:
-  name: "员工工作站"  # 修改为实际客户端名称
-  department: "技术部"  # 修改为实际部门
-  location: "办公室A-101"  # 修改为实际位置
+#### 生产环境配置
+
+有两种方式配置生产环境：
+
+**方式1：修改现有配置文件**
+
+编辑 `config/config.yaml`，注释测试环境配置，取消注释生产环境配置：
+
+```yaml
+server:
+  # 测试环境（本地开发）- 注释掉下面两行
+  # api_base_url: "http://localhost:3000/api"
+  # websocket_url: "ws://localhost:3000/monitor"
+  
+  # 生产环境（取消注释下面两行）
+  api_base_url: "http://206.119.177.133/api"
+  websocket_url: "ws://206.119.177.133/monitor"
+```
+
+**方式2：使用生产环境配置文件**
+
+直接使用预配置的生产环境文件：
+
+```bash
+# 备份当前配置
+cp config/config.yaml config/config.dev.yaml
+
+# 使用生产环境配置
+cp config/config.prod.yaml config/config.yaml
+```
+
+#### 自定义服务器地址
+
+如果需要连接到其他服务器，请修改配置文件中的服务器地址：
+
+```yaml
+server:
+  api_base_url: "http://your-server-ip:3000/api"
+  websocket_url: "ws://your-server-ip:3000/monitor"
+```
+
+#### 配置切换工具
+
+为了方便在测试和生产环境之间切换，提供了配置切换脚本：
+
+```bash
+# 查看当前配置状态
+python3 switch_config.py status
+
+# 切换到测试环境（本地开发）
+python3 switch_config.py dev
+
+# 切换到生产环境
+python3 switch_config.py prod
+
+# 恢复备份配置
+python3 switch_config.py restore
+```
+
+**使用示例：**
+
+```bash
+# 开发时切换到测试环境
+$ python3 switch_config.py dev
+屏幕监控系统 - 配置环境切换工具
+========================================
+✓ 已备份当前配置到: config/config.backup.yaml
+✓ 已切换到测试环境配置
+
+操作完成!
+
+# 部署时切换到生产环境
+$ python3 switch_config.py prod
+屏幕监控系统 - 配置环境切换工具
+========================================
+✓ 已备份当前配置到: config/config.backup.yaml
+✓ 已切换到生产环境配置
+
+操作完成!
+
+# 查看当前配置状态
+$ python3 switch_config.py status
+屏幕监控系统 - 配置环境切换工具
+========================================
+当前配置环境: 生产环境 (206.119.177.133)
+
+相关配置:
+  ✓ 激活: api_base_url: "http://206.119.177.133/api"
+  ✓ 激活: websocket_url: "ws://206.119.177.133/monitor"
+  注释: # api_base_url: "http://localhost:3000/api"
+  注释: # websocket_url: "ws://localhost:3000/monitor"
+
+操作完成!
 ```
 
 ### 4. 运行客户端

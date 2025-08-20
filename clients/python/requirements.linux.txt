@@ -1,0 +1,28 @@
+# Screen Monitor System Python Client Dependencies - Linux Version
+
+# Core dependencies
+pillow>=10.0.0
+requests>=2.31.0
+python-socketio>=5.8.0
+psutil>=5.9.0
+# pywin32>=306  # Windows only
+pyperclip>=1.8.2
+pyyaml>=6.0
+loguru>=0.7.0
+schedule>=1.2.0
+watchdog>=3.0.0
+# mozjpeg-lossless-optimization>=1.3.0  # May have compilation issues on Linux
+
+# Windows service support
+# pywin32-ctypes>=0.2.2  # Windows only
+
+# Development and testing dependencies
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.5.0
+
+# Optional dependencies
+cryptography>=41.0.0
+keyring>=24.0.0

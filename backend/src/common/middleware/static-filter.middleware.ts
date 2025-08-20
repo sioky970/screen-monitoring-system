@@ -1,6 +1,5 @@
-import { Injectable, NestMiddleware } from '@nestjs/common';
+import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import { Logger } from '@nestjs/common';
 
 /**
  * 静态文件过滤中间件
@@ -34,7 +33,7 @@ export class StaticFilterMiddleware implements NestMiddleware {
     /^\/manifest\.json$/,
     /^\/sw\.js$/,
     /^\/service-worker\.js$/,
-    /^\/enc\.js$/,  // 特别处理enc.js
+    /^\/enc\.js$/, // 特别处理enc.js
   ];
 
   use(req: Request, res: Response, next: NextFunction) {
@@ -42,6 +41,11 @@ export class StaticFilterMiddleware implements NestMiddleware {
 
     // 只处理GET请求
     if (method !== 'GET') {
+      return next();
+    }
+
+    // 如果是storage路径或文件代理API路径，不拦截，让其他中间件处理
+    if (url.startsWith('/storage/') || url.startsWith('/api/files/proxy/')) {
       return next();
     }
 
@@ -55,12 +59,14 @@ export class StaticFilterMiddleware implements NestMiddleware {
       }
 
       // 直接返回404，不进入NestJS路由系统
-      res.status(404).json({
-        statusCode: 404,
-        message: 'Static file not found',
-        path: url,
-        timestamp: new Date().toISOString(),
-      });
+      if (!res.headersSent) {
+        res.status(404).json({
+          statusCode: 404,
+          message: 'Static file not found',
+          path: url,
+          timestamp: new Date().toISOString(),
+        });
+      }
       return;
     }
 

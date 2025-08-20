@@ -161,7 +161,7 @@ export class SecurityScreenshot extends BaseEntity {
   alertStatus: AlertStatus;
 
   // 关联关系
-  @ManyToOne(() => Client, (client) => client.securityScreenshots, {
+  @ManyToOne(() => Client, client => client.securityScreenshots, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'client_id' })

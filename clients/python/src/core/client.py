@@ -19,7 +19,7 @@ from .config import AppConfig
 from .logger import get_logger
 from modules.screenshot import ScreenshotManager
 from modules.clipboard import ClipboardMonitor
-from modules.websocket_client import WebSocketClient
+from modules.http_client import HttpClient
 from modules.whitelist import WhitelistManager
 from modules.violation import ViolationReporter
 from utils.client_id import ClientIdManager
@@ -123,8 +123,8 @@ class ScreenMonitorClient:
             self.logger
         )
         
-        # 初始化WebSocket客户端
-        self.websocket_client = WebSocketClient(
+        # 初始化HTTP客户端
+        self.http_client = HttpClient(
             self.config, 
             client_id, 
             self.logger,
@@ -135,7 +135,9 @@ class ScreenMonitorClient:
         self.screenshot_manager = ScreenshotManager(
             self.config, 
             self.logger,
-            self.client_id_manager
+            self.client_id_manager,
+            self.whitelist_manager,
+            self.violation_reporter
         )
         
         # 初始化剪贴板监控器
@@ -164,32 +166,18 @@ class ScreenMonitorClient:
             self._threads.append(thread)
             self.logger.info("白名单管理器已启动")
         
-        # 启动WebSocket客户端
+        # 启动HTTP客户端
         thread = threading.Thread(
-            target=self._run_websocket_client,
-            name="WebSocketClient",
+            target=self._run_http_client,
+            name="HttpClient",
             daemon=True
         )
         thread.start()
         self._threads.append(thread)
-        self.logger.info("WebSocket客户端已启动")
+        self.logger.info("HTTP客户端已启动")
         
-        # 等待WebSocket连接建立
-        time.sleep(2)
-        
-        # WebSocket连接建立后，主动同步一次白名单
-        if self.config.whitelist.enabled and self.whitelist_manager:
-            try:
-                self.logger.info("WebSocket连接建立后，主动同步白名单...")
-                # 在单独线程中执行同步，避免阻塞主流程
-                sync_thread = threading.Thread(
-                    target=self._trigger_whitelist_sync,
-                    name="InitialWhitelistSync",
-                    daemon=True
-                )
-                sync_thread.start()
-            except Exception as e:
-                self.logger.error(f"触发白名单同步失败: {e}")
+        # 等待HTTP客户端启动
+        time.sleep(1)
         
         # 启动截图管理器
         thread = threading.Thread(
@@ -222,7 +210,7 @@ class ScreenMonitorClient:
         modules = [
             (self.clipboard_monitor, "剪贴板监控器"),
             (self.screenshot_manager, "截图管理器"),
-            (self.websocket_client, "WebSocket客户端"),
+            (self.http_client, "HTTP客户端"),
             (self.whitelist_manager, "白名单管理器"),
             (self.violation_reporter, "违规事件上报器")
         ]
@@ -244,27 +232,17 @@ class ScreenMonitorClient:
         except Exception as e:
             self.logger.error(f"白名单管理器运行异常: {e}")
     
-    def _run_websocket_client(self) -> None:
-        """运行WebSocket客户端"""
+    def _run_http_client(self) -> None:
+        """运行HTTP客户端"""
         try:
-            # 创建新的事件循环
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            # 启动HTTP客户端
+            self.http_client.start()
             
-            # 运行WebSocket客户端
-            loop.run_until_complete(self.websocket_client.start())
-            
-            # 保持连接
-            while not self._stop_event.is_set():
-                time.sleep(1)
+            # 运行轮询循环
+            self.http_client.run_polling_loop()
                 
         except Exception as e:
-            self.logger.error(f"WebSocket客户端运行异常: {e}")
-        finally:
-            try:
-                loop.close()
-            except:
-                pass
+            self.logger.error(f"HTTP客户端运行异常: {e}")
     
     def _run_screenshot_manager(self) -> None:
         """运行截图管理器"""

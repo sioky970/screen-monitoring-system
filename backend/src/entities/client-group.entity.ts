@@ -51,6 +51,6 @@ export class ClientGroup extends BaseEntityWithId {
   createdBy: number;
 
   // 关联关系
-  @OneToMany(() => Client, (client) => client.group)
+  @OneToMany(() => Client, client => client.group)
   clients: Client[];
 }

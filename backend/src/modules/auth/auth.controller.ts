@@ -22,14 +22,14 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
-    summary: '管理员登录', 
-    description: '管理员使用邮箱和密码登录系统' 
+  @ApiOperation({
+    summary: '管理员登录',
+    description: '管理员使用邮箱和密码登录系统',
   })
-  @ApiResponse({ 
-    status: 200, 
-    description: '登录成功', 
-    type: AdminLoginResponseDto 
+  @ApiResponse({
+    status: 200,
+    description: '登录成功',
+    type: AdminLoginResponseDto,
   })
   @ApiResponse({ status: 401, description: '邮箱或密码错误' })
   adminLogin(@Body() adminLoginDto: AdminLoginDto) {
@@ -39,9 +39,9 @@ export class AuthController {
   @Public()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
-    summary: '退出登录', 
-    description: '管理员退出登录' 
+  @ApiOperation({
+    summary: '退出登录',
+    description: '管理员退出登录',
   })
   @ApiResponse({ status: 200, description: '退出成功' })
   logout() {
@@ -49,11 +49,12 @@ export class AuthController {
     return { message: '退出登录成功' };
   }
 
+  @Public()
   @Get('profile')
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ 
-    summary: '获取用户信息', 
-    description: '获取当前登录用户的详细信息' 
+  @ApiOperation({
+    summary: '获取用户信息',
+    description: '获取当前登录用户的详细信息',
   })
   @ApiResponse({ status: 200, description: '获取成功' })
   @ApiResponse({ status: 401, description: '未授权' })
@@ -67,32 +68,32 @@ export class AuthController {
   @Public()
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
-    summary: '修改密码', 
-    description: '管理员修改登录密码' 
+  @ApiOperation({
+    summary: '修改密码',
+    description: '管理员修改登录密码',
   })
   @ApiResponse({ status: 200, description: '密码修改成功' })
   @ApiResponse({ status: 401, description: '当前密码错误' })
   changePassword(@Body() changePasswordDto: ChangePasswordDto, @Request() req) {
     // 这里应该从JWT中获取用户ID，暂时硬编码
     return this.authService.changePassword(
-      1, 
-      changePasswordDto.currentPassword, 
-      changePasswordDto.newPassword
+      1,
+      changePasswordDto.currentPassword,
+      changePasswordDto.newPassword,
     );
   }
 
   @Public()
   @Post('client')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
-    summary: '客户端认证', 
-    description: '客户端首次运行时无需认证，如果没有UID则自动生成并返回唯一UID作为认证凭证' 
+  @ApiOperation({
+    summary: '客户端认证',
+    description: '客户端首次运行时无需认证，如果没有UID则自动生成并返回唯一UID作为认证凭证',
   })
-  @ApiResponse({ 
-    status: 200, 
-    description: '认证成功', 
-    type: ClientAuthResponseDto 
+  @ApiResponse({
+    status: 200,
+    description: '认证成功',
+    type: ClientAuthResponseDto,
   })
   @ApiResponse({ status: 400, description: '客户端编号已存在' })
   clientAuth(@Body() clientAuthDto: ClientAuthDto) {
