@@ -120,7 +120,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import dayjs from 'dayjs'
 import {
   DesktopOutlined,
@@ -155,6 +155,16 @@ const emit = defineEmits<Emits>()
 // 状态
 const imageError = ref(false)
 const isHovered = ref(false)
+
+// 监听客户端变化，重置图片错误状态
+watch(() => props.client.id, () => {
+  imageError.value = false
+}, { immediate: true })
+
+// 监听截图URL变化，重置图片错误状态
+watch(() => props.client.latestScreenshotUrl, () => {
+  imageError.value = false
+})
 
 // 计算属性
 const isOffline = computed(() => props.client.status === 'offline')

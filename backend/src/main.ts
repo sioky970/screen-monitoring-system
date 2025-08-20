@@ -25,7 +25,15 @@ async function bootstrap() {
   if (!existsSync(storageDir)) {
     mkdirSync(storageDir, { recursive: true });
   }
-  app.use('/storage', express.static(storageDir));
+
+  // 配置静态文件服务，支持MinIO bucket结构
+  const minioStorageDir = join(storageDir, 'monitoring-screenshots');
+  if (!existsSync(minioStorageDir)) {
+    mkdirSync(minioStorageDir, { recursive: true });
+  }
+
+  // 将 /storage 路径映射到 MinIO bucket 目录
+  app.use('/storage', express.static(minioStorageDir));
 
   // 跨域配置
   app.enableCors({
