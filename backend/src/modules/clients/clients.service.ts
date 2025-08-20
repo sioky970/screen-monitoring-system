@@ -12,6 +12,7 @@ import { UpdateClientDto } from './dto/update-client.dto';
 import { CreateClientGroupDto } from './dto/create-client-group.dto';
 import { UpdateClientGroupDto } from './dto/update-client-group.dto';
 import { QueryClientsDto } from './dto/query-clients.dto';
+import { ClientRegisterDto } from './dto/client-register.dto';
 
 import { RedisService } from '../../common/services/redis.service';
 import { MinioService } from '../../common/services/minio.service';
@@ -275,6 +276,102 @@ export class ClientsService implements OnModuleInit, OnModuleDestroy {
       },
       success: true,
       timestamp: new Date(),
+    };
+  }
+
+  /**
+   * 客户端注册/认证
+   * 如果提供UID且存在则认证，否则注册新客户端
+   */
+  async registerOrAuthenticate(registerDto: ClientRegisterDto): Promise<{
+    uid: string;
+    isNewClient: boolean;
+    client: Partial<Client>;
+  }> {
+    // 如果提供了UID，尝试认证
+    if (registerDto.uid) {
+      const existingClient = await this.clientRepository.findOne({
+        where: { id: registerDto.uid },
+        relations: ['group'],
+      });
+
+      if (existingClient) {
+        // 更新客户端信息
+        existingClient.lastHeartbeat = new Date();
+        if (registerDto.ipAddress) {
+          existingClient.ipAddress = registerDto.ipAddress;
+        }
+        if (registerDto.osInfo) {
+          existingClient.osVersion = registerDto.osInfo;
+        }
+        if (registerDto.version) {
+          existingClient.clientVersion = registerDto.version;
+        }
+
+        await this.clientRepository.save(existingClient);
+
+        this.logger.log(`客户端认证成功: ${existingClient.computerName} (${registerDto.uid})`);
+
+        return {
+          uid: existingClient.id,
+          isNewClient: false,
+          client: {
+            id: existingClient.id,
+            clientNumber: existingClient.clientNumber,
+            computerName: existingClient.computerName,
+            status: existingClient.status,
+            group: existingClient.group,
+          },
+        };
+      }
+    }
+
+    // 注册新客户端
+    const newUid = uuidv4();
+    const clientNumber = `CLIENT-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+
+    // 自动分配分组
+    const assignedGroupId = await this.assignClientGroup({
+      computerName: registerDto.computerName,
+      clientNumber,
+      clientName: `客户端-${registerDto.computerName}`,
+    });
+
+    const newClient = this.clientRepository.create({
+      id: newUid,
+      clientNumber,
+      clientName: `客户端-${registerDto.computerName}`,
+      computerName: registerDto.computerName,
+      ipAddress: registerDto.ipAddress,
+      osVersion: registerDto.osInfo,
+      clientVersion: registerDto.version,
+      username: registerDto.username,
+      groupId: assignedGroupId,
+      status: ClientStatus.OFFLINE,
+      firstConnect: new Date(),
+      lastHeartbeat: new Date(),
+    });
+
+    const savedClient = await this.clientRepository.save(newClient);
+
+    // 获取完整的客户端信息（包含分组）
+    const fullClient = await this.clientRepository.findOne({
+      where: { id: savedClient.id },
+      relations: ['group'],
+    });
+
+    this.logger.log(`新客户端注册成功: ${fullClient.computerName} (${newUid})`);
+
+    return {
+      uid: newUid,
+      isNewClient: true,
+      client: {
+        id: fullClient.id,
+        clientNumber: fullClient.clientNumber,
+        computerName: fullClient.computerName,
+        status: fullClient.status,
+        group: fullClient.group,
+      },
     };
   }
 

@@ -2,6 +2,12 @@ import { IsString, IsNotEmpty, IsOptional, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateClientDto {
+  @ApiPropertyOptional({ description: '客户端UID（如果为空则注册新客户端）' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50, { message: '客户端UID不能超过50个字符' })
+  uid?: string;
+
   @ApiProperty({ description: '客户端编号' })
   @IsString()
   @IsNotEmpty({ message: '客户端编号不能为空' })

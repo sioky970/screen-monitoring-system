@@ -58,45 +58,47 @@ class ClientIdManager:
     
     def get_client_uid(self) -> str:
         """获取客户端UID
-        
-        优先使用内存缓存，避免频繁文件读取
-        如果缓存为空，则从本地文件加载UID，如果不存在则生成新的UID并进行注册
-        
+
+        实现正确的注册/认证逻辑：
+        1. 如果本地有UID，尝试用该UID认证
+        2. 如果认证成功，返回该UID
+        3. 如果认证失败或没有本地UID，注册新客户端并获取新UID
+
         Returns:
             客户端UID
         """
         # 如果内存中已有缓存，直接返回
         if self._cached_uid:
             return self._cached_uid
-        
+
         # 尝试从本地文件加载UID
         local_client_uid = self._load_local_client_uid()
-        
-        if local_client_uid:
-            self.logger.info(f"从本地文件加载客户端UID: {local_client_uid}")
+
+        # 尝试注册/认证
+        register_result = self._register_or_authenticate(local_client_uid)
+
+        if register_result and register_result.get('uid'):
+            final_uid = register_result['uid']
+            is_new_client = register_result.get('isNewClient', False)
+
+            # 保存UID到本地文件
+            self._save_local_client_uid(final_uid)
             # 缓存到内存中
-            self._cached_uid = local_client_uid
-            return local_client_uid
-        
-        # 生成新的UID
-        new_uid = str(uuid.uuid4())
-        
-        # 使用新UID进行客户端注册
-        register_result = self._authenticate_client(new_uid)
-        if register_result and register_result.get('data', {}).get('uid'):
-            # 保存到本地文件
-            self._save_local_client_uid(new_uid)
-            # 缓存到内存中
-            self._cached_uid = new_uid
-            self.logger.info(f"客户端注册成功，UID: {new_uid}")
-            return new_uid
+            self._cached_uid = final_uid
+
+            if is_new_client:
+                self.logger.info(f"新客户端注册成功，UID: {final_uid}")
+            else:
+                self.logger.info(f"客户端认证成功，UID: {final_uid}")
+
+            return final_uid
         else:
-            # 注册失败，仍然保存UID以便下次使用
-            self._save_local_client_uid(new_uid)
-            # 缓存到内存中
-            self._cached_uid = new_uid
-            self.logger.warning(f"客户端注册失败，但已保存UID: {new_uid}")
-            return new_uid
+            # 注册/认证失败，生成临时UID
+            temp_uid = str(uuid.uuid4())
+            self._save_local_client_uid(temp_uid)
+            self._cached_uid = temp_uid
+            self.logger.warning(f"客户端注册/认证失败，使用临时UID: {temp_uid}")
+            return temp_uid
     
     def _load_local_client_uid(self) -> Optional[str]:
         """从本地文件加载客户端UID
@@ -138,59 +140,72 @@ class ClientIdManager:
             self.logger.error(f"保存客户端UID失败: {e}")
             return False
     
-    def _authenticate_client(self, client_uid: str) -> Optional[Dict]:
-        """客户端注册
-        
+    def _register_or_authenticate(self, existing_uid: Optional[str] = None) -> Optional[Dict]:
+        """客户端注册/认证
+
         Args:
-            client_uid: 客户端UID，将作为clientNumber使用
-        
+            existing_uid: 现有的客户端UID，如果为None则注册新客户端
+
         Returns:
-            注册结果字典，包含id、clientNumber等信息
+            注册/认证结果字典，包含uid、isNewClient等信息
         """
         try:
-            url = f"{self.config.server.api_base_url}/clients"
-            
-            # 构建注册数据，使用UID作为clientNumber
+            url = f"{self.config.server.api_base_url}/clients/register"
+
+            # 构建注册/认证数据
             register_data = {
-                'clientNumber': client_uid,  # 使用UID作为客户端编号
-                'clientName': f"客户端-{client_uid[:8]}",  # 使用UID前8位作为客户端名称
                 'computerName': self.system_info['computerName'],
-                'os': self.system_info['osVersion'],
+                'osInfo': self.system_info['osVersion'],
                 'version': self.config.client.version,
-                'remark': f"Python客户端 - {self.system_info['username']}@{self.system_info['computerName']}"
+                'username': self.system_info['username'],
+                'ipAddress': self._get_local_ip(),
             }
-            
+
+            # 如果有现有UID，添加到请求中
+            if existing_uid:
+                register_data['uid'] = existing_uid
+                self.logger.info(f"尝试使用现有UID认证: {existing_uid}")
+            else:
+                self.logger.info("首次注册，请求新UID")
+
             response = self.session.post(
-                url, 
+                url,
                 json=register_data,
                 headers={'Content-Type': 'application/json'},
                 timeout=self.config.server.timeout
             )
-            
-            if response.status_code == 200 or response.status_code == 201:
+
+            if response.status_code in [200, 201]:
                 result = response.json()
-                self.logger.info(f"客户端注册成功: {result.get('clientName', '')}")
-                self.logger.debug(f"注册响应数据: {result}")
-                # 将服务器返回的id作为客户端UID
-                return {
-                    'data': {
-                        'uid': result.get('id'),
-                        'isNewClient': True
-                    }
-                }
+                self.logger.debug(f"注册/认证响应数据: {result}")
+                # 提取data字段中的内容
+                if result.get('success') and result.get('data'):
+                    return result['data']
+                return result
             else:
-                self.logger.warning(f"客户端注册失败: HTTP {response.status_code} - {response.text}")
+                self.logger.warning(f"客户端注册/认证失败: HTTP {response.status_code} - {response.text}")
                 return None
-                
+
         except requests.exceptions.Timeout:
-            self.logger.warning("客户端注册超时")
+            self.logger.warning("客户端注册/认证超时")
             return None
         except requests.exceptions.ConnectionError:
-            self.logger.warning("客户端注册连接失败")
+            self.logger.warning("客户端注册/认证连接失败")
             return None
         except Exception as e:
-            self.logger.error(f"客户端注册异常: {e}")
+            self.logger.error(f"客户端注册/认证异常: {e}")
             return None
+
+    def _get_local_ip(self) -> str:
+        """获取本地IP地址"""
+        try:
+            import socket
+            # 连接到一个远程地址来获取本地IP
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                return s.getsockname()[0]
+        except Exception:
+            return "127.0.0.1"
     
     def get_client_info(self) -> Dict[str, str]:
         """获取客户端信息

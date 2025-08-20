@@ -19,6 +19,7 @@ import { CreateClientGroupDto } from './dto/create-client-group.dto';
 import { UpdateClientGroupDto } from './dto/update-client-group.dto';
 import { BulkDeleteDto } from './dto/bulk-delete.dto';
 import { ClientHeartbeatDto } from './dto/client-heartbeat.dto';
+import { ClientRegisterDto } from './dto/client-register.dto';
 import { Public } from '../auth/decorators/public.decorator';
 
 import { UserRole } from '../../common/enums/user-role.enum';
@@ -44,6 +45,37 @@ export class ClientsController {
   @ApiResponse({ status: 200, description: '获取成功' })
   getStats() {
     return this.clientsService.getClientStats();
+  }
+
+  @Public()
+  @Post('register')
+  @ApiOperation({
+    summary: '客户端注册/认证',
+    description: '如果提供UID且存在则认证，否则注册新客户端并返回新UID'
+  })
+  @ApiResponse({
+    status: 200,
+    description: '注册/认证成功',
+    schema: {
+      type: 'object',
+      properties: {
+        uid: { type: 'string', description: '客户端UID' },
+        isNewClient: { type: 'boolean', description: '是否为新注册客户端' },
+        client: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            clientNumber: { type: 'string' },
+            computerName: { type: 'string' },
+            status: { type: 'string' }
+          }
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: '请求参数错误' })
+  register(@Body() registerDto: ClientRegisterDto) {
+    return this.clientsService.registerOrAuthenticate(registerDto);
   }
 
   @Public()
