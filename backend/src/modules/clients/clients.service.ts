@@ -98,9 +98,12 @@ export class ClientsService implements OnModuleInit, OnModuleDestroy {
     }
 
     // 分开查询数据与总数，绕过 TypeORM 在 getManyAndCount + orderBy 下的已知问题
+    // 使用稳定的排序：先按状态排序（在线优先），再按创建时间排序，最后按ID排序确保稳定性
     const dataQuery = baseQueryBuilder
       .clone()
-      .orderBy('client.lastHeartbeat', 'DESC')
+      .orderBy('client.status', 'ASC')
+      .addOrderBy('client.createdAt', 'ASC')
+      .addOrderBy('client.id', 'ASC')
       .take(pageSize)
       .skip((page - 1) * pageSize);
 

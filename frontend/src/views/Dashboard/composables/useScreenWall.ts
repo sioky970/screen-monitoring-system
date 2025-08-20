@@ -61,6 +61,96 @@ export const useScreenWall = (): ScreenWallState => {
   const refreshInterval = ref(10000) // 10秒
   const lastRefreshTime = ref<Date | null>(null)
   let refreshTimer: NodeJS.Timeout | null = null
+
+  // 智能更新客户端数据，避免不必要的重新渲染
+  const updateClientsData = (newClients: Client[]) => {
+    if (clients.value.length === 0) {
+      // 首次加载，直接设置
+      clients.value = [...newClients]
+      return
+    }
+
+    // 创建新的客户端映射
+    const newClientsMap = new Map(newClients.map(client => [client.id, client]))
+    const currentClientsMap = new Map(clients.value.map(client => [client.id, client]))
+
+    // 检查是否需要更新
+    let needsUpdate = false
+
+    // 检查数量变化
+    if (newClients.length !== clients.value.length) {
+      needsUpdate = true
+    }
+
+    // 检查客户端ID变化
+    if (!needsUpdate) {
+      const newIds = new Set(newClients.map(c => c.id))
+      const currentIds = new Set(clients.value.map(c => c.id))
+
+      if (newIds.size !== currentIds.size) {
+        needsUpdate = true
+      } else {
+        for (const id of newIds) {
+          if (!currentIds.has(id)) {
+            needsUpdate = true
+            break
+          }
+        }
+      }
+    }
+
+    // 检查客户端数据变化
+    if (!needsUpdate) {
+      for (const newClient of newClients) {
+        const currentClient = currentClientsMap.get(newClient.id)
+        if (!currentClient || hasClientChanged(currentClient, newClient)) {
+          needsUpdate = true
+          break
+        }
+      }
+    }
+
+    if (needsUpdate) {
+      // 保持稳定的排序：在线状态优先，然后按创建时间，最后按ID
+      const sortedClients = [...newClients].sort((a, b) => {
+        // 1. 在线状态优先
+        if (a.status === 'online' && b.status !== 'online') return -1
+        if (a.status !== 'online' && b.status === 'online') return 1
+
+        // 2. 按创建时间排序
+        const aTime = new Date(a.createdAt || 0).getTime()
+        const bTime = new Date(b.createdAt || 0).getTime()
+        if (aTime !== bTime) return aTime - bTime
+
+        // 3. 按ID排序确保稳定性
+        return a.id.localeCompare(b.id)
+      })
+
+      clients.value = sortedClients
+    }
+  }
+
+  // 检查客户端数据是否发生变化
+  const hasClientChanged = (oldClient: Client, newClient: Client): boolean => {
+    const keys: (keyof Client)[] = [
+      'computerName', 'status', 'lastHeartbeat', 'latestScreenshotUrl',
+      'alertCount', 'groupId'
+    ]
+
+    return keys.some(key => {
+      const oldValue = oldClient[key]
+      const newValue = newClient[key]
+
+      // 处理日期比较
+      if (key === 'lastHeartbeat') {
+        const oldTime = oldValue ? new Date(oldValue as string).getTime() : 0
+        const newTime = newValue ? new Date(newValue as string).getTime() : 0
+        return Math.abs(oldTime - newTime) > 1000 // 1秒的差异才算变化
+      }
+
+      return oldValue !== newValue
+    })
+  }
   
   // 计算属性
   const onlineClients = computed(() => 
@@ -73,17 +163,17 @@ export const useScreenWall = (): ScreenWallState => {
   
   const filteredClients = computed(() => {
     let result = clients.value
-    
+
     // 按组筛选
     if (selectedGroupId.value !== null) {
       result = result.filter((c: Client) => c.groupId === selectedGroupId.value)
     }
-    
+
     // 按状态筛选
     if (statusFilter.value !== 'all') {
       result = result.filter((c: Client) => c.status === statusFilter.value)
     }
-    
+
     // 按搜索关键词筛选
     if (searchQuery.value.trim()) {
       const query = searchQuery.value.toLowerCase()
@@ -91,8 +181,21 @@ export const useScreenWall = (): ScreenWallState => {
         c.computerName?.toLowerCase().includes(query)
       )
     }
-    
-    return result
+
+    // 确保稳定的排序（与后端保持一致）
+    return [...result].sort((a, b) => {
+      // 1. 在线状态优先
+      if (a.status === 'online' && b.status !== 'online') return -1
+      if (a.status !== 'online' && b.status === 'online') return 1
+
+      // 2. 按创建时间排序
+      const aTime = new Date(a.createdAt || 0).getTime()
+      const bTime = new Date(b.createdAt || 0).getTime()
+      if (aTime !== bTime) return aTime - bTime
+
+      // 3. 按ID排序确保稳定性
+      return a.id.localeCompare(b.id)
+    })
   })
   
   // 数据加载
@@ -117,7 +220,10 @@ export const useScreenWall = (): ScreenWallState => {
       }
 
       const response = await clientApi.getClients(filter)
-      clients.value = response?.clients || []
+      const newClients = response?.clients || []
+
+      // 智能更新客户端数据，保持稳定的排序
+      updateClientsData(newClients)
       lastRefreshTime.value = new Date()
 
       if (!silent) {
