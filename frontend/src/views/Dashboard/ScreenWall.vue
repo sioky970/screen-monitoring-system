@@ -315,13 +315,14 @@ const handleClientSave = async (client: Client) => {
 }
 
 const handleClientDelete = async (clientId: string) => {
+  // 客户端已在 ClientDetailModal 中删除，这里只需要更新UI
   try {
-    await deleteClient(clientId)
-    message.success('客户端删除成功')
     clientDetailVisible.value = false
     await refreshClients()
+    // 成功消息已在 ClientDetailModal 中显示，这里不重复显示
   } catch (error) {
-    message.error('删除失败')
+    console.error('刷新客户端列表失败:', error)
+    // 即使刷新失败也不显示错误，因为删除操作本身是成功的
   }
 }
 

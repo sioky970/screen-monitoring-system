@@ -1,26 +1,26 @@
 <template>
-  <div class="client-basic-info">
-    <a-form :model="editForm" layout="vertical">
-      <a-row :gutter="16">
+  <div class="client-basic-info flat">
+    <a-form :model="editForm" layout="vertical" class="flat-form">
+      <a-row :gutter="12">
         <a-col :span="12">
-          <a-form-item label="客户端编号">
-            <a-input v-model:value="editForm.clientNumber" disabled />
+          <a-form-item label="客户端编号" class="fi">
+            <a-input v-model:value="editForm.clientNumber" disabled size="small" />
           </a-form-item>
         </a-col>
         <a-col :span="12">
-          <a-form-item label="计算机名">
-            <a-input v-model:value="editForm.computerName" />
+          <a-form-item label="计算机名" class="fi">
+            <a-input v-model:value="editForm.computerName" size="small" />
           </a-form-item>
         </a-col>
         <a-col :span="12">
-          <a-form-item label="状态">
+          <a-form-item label="状态" class="fi">
             <a-tag :color="getStatusColor(editForm.status)">
               {{ getStatusText(editForm.status) }}
             </a-tag>
           </a-form-item>
         </a-col>
         <a-col :span="12">
-          <a-form-item label="分组">
+          <a-form-item label="分组" class="fi">
             <div class="group-info">
               <div class="current-group">
                 <span class="label">当前分组：</span>
@@ -29,7 +29,8 @@
               <a-select
                 v-model:value="editForm.groupId"
                 placeholder="选择新分组"
-                style="margin-top: 8px;"
+                class="flat-select"
+                size="small"
                 allow-clear
               >
                 <a-select-option v-for="group in clientGroups" :key="group.id" :value="group.id">
@@ -40,21 +41,18 @@
           </a-form-item>
         </a-col>
         <a-col :span="12">
-          <a-form-item label="最后在线">
-            <a-input
-              :value="lastSeenDisplay"
-              disabled
-            />
+          <a-form-item label="最后在线" class="fi">
+            <a-input :value="lastSeenDisplay" disabled size="small" />
           </a-form-item>
         </a-col>
       </a-row>
 
-      <a-form-item>
+      <div class="flat-actions">
         <a-space>
-          <a-button type="primary" @click="handleSave" :loading="saving">
+          <a-button type="primary" @click="handleSave" :loading="saving" size="small">
             保存修改
           </a-button>
-          <a-button @click="resetForm">
+          <a-button @click="resetForm" size="small">
             重置
           </a-button>
           <a-popconfirm
@@ -63,24 +61,27 @@
             cancel-text="取消"
             @confirm="$emit('delete')"
           >
-            <a-button danger :loading="deleting">
+            <a-button danger :loading="deleting" size="small">
               删除设备
             </a-button>
           </a-popconfirm>
         </a-space>
-      </a-form-item>
+      </div>
     </a-form>
 
     <!-- 最新截图 -->
-    <div v-if="client.latestScreenshotUrl" class="detail-screenshot">
-      <h4>最新截图</h4>
+    <div v-if="client.latestScreenshotUrl" class="detail-screenshot flat-shot">
+      <div class="shot-head">
+        <span>最新截图</span>
+        <a-button type="link" size="small" @click="$emit('show-screenshot', screenshotUrlWithTimestamp, '客户端截图')">放大查看</a-button>
+      </div>
       <img
-        :src="client.latestScreenshotUrl"
+        :src="screenshotUrlWithTimestamp"
         :alt="client.computerName"
         loading="lazy"
         decoding="async"
         class="screenshot-image"
-        @click="$emit('show-screenshot', client.latestScreenshotUrl, '客户端截图')"
+        @click="$emit('show-screenshot', screenshotUrlWithTimestamp, '客户端截图')"
       />
     </div>
   </div>
@@ -109,6 +110,7 @@ interface Props {
   clientGroups: any[]
   saving: boolean
   deleting: boolean
+  imageRefreshTimestamp?: number
 }
 
 interface Emits {
@@ -146,6 +148,14 @@ const currentGroupName = computed(() => {
     return group?.name || '未分组'
   }
   return '未分组'
+})
+
+// 计算带时间戳的截图URL，用于强制刷新
+const screenshotUrlWithTimestamp = computed(() => {
+  if (!props.client?.latestScreenshotUrl) return ''
+  const timestamp = props.imageRefreshTimestamp || Date.now()
+  const separator = props.client.latestScreenshotUrl.includes('?') ? '&' : '?'
+  return `${props.client.latestScreenshotUrl}${separator}t=${timestamp}`
 })
 
 // 重置表单
@@ -201,10 +211,21 @@ const getStatusText = (status: string) => {
 }
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .client-basic-info {
-  /* 基本样式 */
+  &.flat{
+    .flat-form{ --ant-form-item-margin-bottom:12px; }
+    .fi :deep(.ant-form-item-label > label){ color:#8c8c8c; font-weight:500; }
+    .flat-actions{ margin-top: 8px; }
+    .flat-select{ width: 100%; }
+    .detail-screenshot.flat-shot{
+      margin-top: 12px;
+      .shot-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; color:#595959; }
+      .screenshot-image{ border-radius: 6px; }
+    }
+  }
 }
+  /* 基本样式 */
 
 .detail-screenshot {
   margin-top: 16px;

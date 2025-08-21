@@ -28,7 +28,9 @@ export function useAlerts() {
     loading.value = true
     try {
       const response = await securityApi.getClientAlerts({ clientId })
-      alerts.value = response.data?.alerts || []
+      // 后端响应结构: { code: 200, data: { success: true, data: { alerts: [...], total: 8 } } }
+      const alertsData = response.data?.data || response.data
+      alerts.value = alertsData?.alerts || []
     } catch (error) {
       console.error('Failed to load alerts:', error)
       // 使用模拟数据

@@ -174,47 +174,212 @@ class ViolationReporter:
                 time.sleep(1)
     
     def _send_violation_report(self, violation_data: Dict) -> bool:
-        """发送违规事件报告
-        
+        """发送违规事件报告（使用新的统一接口）
+
         Args:
             violation_data: 违规事件数据
-        
+
         Returns:
             是否发送成功
         """
-        url = f"{self.config.server.api_base_url}/security/violations/report"
-        
+        # 使用新的统一违规上报接口
+        url = f"{self.config.server.api_base_url}/security/violations/report-with-screenshot"
+
         # 重试发送
         for attempt in range(self.config.server.max_retries):
             try:
+                # 准备multipart/form-data格式的数据
+                files_data, form_data = self._prepare_violation_data(violation_data)
+
                 response = self.session.post(
                     url,
-                    json=violation_data,
+                    files=files_data,
+                    data=form_data,
                     timeout=self.config.server.timeout
                 )
-                
-                if response.status_code in [200, 201]:
+
+                # 日志中输出服务器返回（状态码与响应体）
+                status = response.status_code
+                body_preview = ''
+                try:
                     result = response.json()
-                    if result.get('success'):
+                    body_preview = json.dumps(result, ensure_ascii=False)[:1000]
+                except Exception:
+                    body_preview = (response.text or '')[:1000]
+                self.logger.info(f"违规上报响应: status={status}, body={body_preview}")
+
+                if status in [200, 201]:
+                    # 检查响应格式
+                    try:
+                        if isinstance(result, dict):
+                            # 检查新接口的响应格式
+                            if result.get('success') or (result.get('data', {}).get('success')):
+                                return True
+                            else:
+                                self.logger.warning(f"服务器返回非成功结果: {result}")
+                        else:
+                            # 非JSON成功响应，按201视为成功
+                            return True
+                    except Exception:
+                        # 非JSON成功响应，按201视为成功
                         return True
-                    else:
-                        self.logger.warning(f"服务器返回错误: {result.get('message', '未知错误')}")
                 else:
-                    self.logger.warning(f"HTTP错误: {response.status_code} - {response.text}")
-                
+                    self.logger.warning(f"HTTP错误: {status} - {(response.text or '')[:500]}")
+
             except requests.exceptions.Timeout:
                 self.logger.warning(f"上报超时 (尝试 {attempt + 1}/{self.config.server.max_retries})")
             except requests.exceptions.ConnectionError:
                 self.logger.warning(f"连接错误 (尝试 {attempt + 1}/{self.config.server.max_retries})")
             except Exception as e:
                 self.logger.error(f"上报异常: {e} (尝试 {attempt + 1}/{self.config.server.max_retries})")
-            
+
             # 重试前等待
             if attempt < self.config.server.max_retries - 1:
                 time.sleep(self.config.server.retry_delay)
-        
+
         return False
-    
+
+    def _prepare_violation_data(self, violation_data: Dict) -> tuple:
+        """准备违规数据为新接口格式
+
+        Args:
+            violation_data: 违规事件数据
+
+        Returns:
+            (files_data, form_data): 文件数据和表单数据的元组
+        """
+        # 准备表单数据
+        form_data = {
+            'clientId': violation_data.get('clientId', self.client_id),
+            'violationType': violation_data.get('violationType', 'BLOCKCHAIN_ADDRESS'),
+            'violationContent': violation_data.get('violationContent', ''),
+            'timestamp': violation_data.get('report_time', datetime.now().isoformat()),
+        }
+
+        # 准备附加数据
+        additional_data = {}
+        if 'additionalData' in violation_data:
+            if isinstance(violation_data['additionalData'], dict):
+                additional_data = violation_data['additionalData']
+            else:
+                try:
+                    additional_data = json.loads(violation_data['additionalData'])
+                except:
+                    additional_data = {'raw_data': str(violation_data['additionalData'])}
+
+        # 添加其他有用的信息
+        if 'fullClipboardContent' in violation_data:
+            additional_data['clipboardContent'] = violation_data['fullClipboardContent']
+        if 'address_type' in violation_data:
+            additional_data['addressType'] = violation_data['address_type']
+        if 'detected_at' in violation_data:
+            additional_data['detectedAt'] = violation_data['detected_at']
+
+        # 添加客户端信息
+        additional_data['clientVersion'] = self.config.client.version
+        additional_data['platform'] = 'Python'
+
+        form_data['additionalData'] = json.dumps(additional_data, ensure_ascii=False)
+
+        # 准备截图文件
+        files_data = {}
+        screenshot_data = self._get_current_screenshot()
+        if screenshot_data:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"violation_screenshot_{timestamp}.jpg"
+            files_data['file'] = (filename, screenshot_data, 'image/jpeg')
+        else:
+            # 如果无法获取截图，创建一个空的占位文件
+            files_data['file'] = ('no_screenshot.txt', b'No screenshot available', 'text/plain')
+            self.logger.warning("无法获取违规截图，使用占位文件")
+
+        return files_data, form_data
+
+    def _get_current_screenshot(self) -> Optional[bytes]:
+        """获取当前屏幕截图（高质量违规截图）
+
+        Returns:
+            截图数据或None
+        """
+        try:
+            # 尝试导入截图模块
+            from PIL import ImageGrab, Image
+            import io
+
+            # 截取屏幕
+            screenshot = ImageGrab.grab()
+
+            # 获取违规截图配置
+            violation_config = self.config.screenshot.violation
+
+            # 处理分辨率
+            if not violation_config.preserve_resolution and violation_config.max_long_side > 0:
+                # 计算缩放比例
+                width, height = screenshot.size
+                max_side = max(width, height)
+
+                if max_side > violation_config.max_long_side:
+                    scale_ratio = violation_config.max_long_side / max_side
+                    new_width = int(width * scale_ratio)
+                    new_height = int(height * scale_ratio)
+                    screenshot = screenshot.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    self.logger.debug(f"违规截图已缩放: {width}x{height} -> {new_width}x{new_height}")
+
+            # 高质量压缩截图
+            output = io.BytesIO()
+
+            # 使用高质量设置
+            save_kwargs = {
+                'format': 'JPEG',
+                'quality': violation_config.quality,
+                'optimize': True,
+                'progressive': True,  # 渐进式JPEG，提高加载体验
+                'subsampling': 0,     # 禁用色度子采样，保持更好的颜色质量
+                'qtables': 'web_high' # 使用高质量量化表
+            }
+
+            screenshot.save(output, **save_kwargs)
+            screenshot_data = output.getvalue()
+            output.close()
+
+            # 检查文件大小
+            if len(screenshot_data) > violation_config.max_file_size:
+                self.logger.warning(f"违规截图过大 ({len(screenshot_data)} bytes)，尝试降低质量")
+                # 如果文件过大，逐步降低质量
+                for quality in [85, 80, 75, 70]:
+                    output = io.BytesIO()
+                    save_kwargs['quality'] = quality
+                    screenshot.save(output, **save_kwargs)
+                    screenshot_data = output.getvalue()
+                    output.close()
+
+                    if len(screenshot_data) <= violation_config.max_file_size:
+                        self.logger.debug(f"违规截图质量调整为 {quality}，大小: {len(screenshot_data)} bytes")
+                        break
+
+            # 尝试无损优化（如果启用且可用）
+            if violation_config.lossless_optimization:
+                try:
+                    from mozjpeg_lossless_optimization import optimize
+                    optimized_data = optimize(screenshot_data)
+                    if len(optimized_data) < len(screenshot_data):
+                        screenshot_data = optimized_data
+                        self.logger.debug(f"违规截图无损优化成功，压缩率: {len(optimized_data)/len(screenshot_data)*100:.1f}%")
+                except ImportError:
+                    self.logger.debug("MozJPEG优化不可用，跳过无损优化")
+                except Exception as e:
+                    self.logger.warning(f"违规截图无损优化失败: {e}")
+
+            self.logger.info(f"获取高质量违规截图成功，分辨率: {screenshot.size}, 质量: {violation_config.quality}, 大小: {len(screenshot_data)} bytes")
+            return screenshot_data
+
+        except ImportError:
+            self.logger.warning("PIL.ImageGrab不可用，无法获取截图")
+            return None
+        except Exception as e:
+            self.logger.error(f"获取违规截图失败: {e}")
+            return None
+
     def _cache_event(self, violation_data: Dict) -> None:
         """缓存事件到本地文件
         

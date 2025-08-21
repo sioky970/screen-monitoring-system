@@ -466,10 +466,13 @@ class BlockchainAddressDetector:
                             'clientId': client_id or 'unknown',
                             'violationType': 'BLOCKCHAIN_ADDRESS',
                             'violationContent': address,
+                            'report_time': datetime.now().isoformat(),
                             'additionalData': {
                                 'address_type': address_type,
                                 'fullClipboardContent': content[:500],  # 限制内容长度
-                                'detected_at': datetime.now().isoformat()
+                                'detected_at': datetime.now().isoformat(),
+                                'detection_method': 'clipboard_monitor',
+                                'risk_level': 'HIGH'
                             }
                         }
                         self.violation_reporter.report_violation(full_violation_data)
@@ -543,7 +546,21 @@ class BlockchainAddressDetector:
                         # 上报违规事件
                         if self.violation_reporter:
                             try:
-                                self.violation_reporter.report_violation(violation_data)
+                                # 更新违规数据格式
+                                enhanced_violation_data = {
+                                    'clientId': client_id or 'unknown',
+                                    'violationType': 'BLOCKCHAIN_ADDRESS',
+                                    'violationContent': address,
+                                    'report_time': datetime.now().isoformat(),
+                                    'additionalData': {
+                                        'address_type': address_type,
+                                        'fullClipboardContent': content[:500],
+                                        'detected_at': datetime.now().isoformat(),
+                                        'detection_method': 'batch_validation',
+                                        'risk_level': 'HIGH'
+                                    }
+                                }
+                                self.violation_reporter.report_violation(enhanced_violation_data)
                                 self._stats['violations_reported'] += 1
                                 self.logger.warning(f"检测到违规区块链地址: {address} (类型: {address_type})")
                             except Exception as e:
@@ -582,7 +599,21 @@ class BlockchainAddressDetector:
                     # 上报违规事件
                     if self.violation_reporter:
                         try:
-                            self.violation_reporter.report_violation(violation_data)
+                            # 更新违规数据格式
+                            enhanced_violation_data = {
+                                'clientId': client_id or 'unknown',
+                                'violationType': 'BLOCKCHAIN_ADDRESS',
+                                'violationContent': address,
+                                'report_time': datetime.now().isoformat(),
+                                'additionalData': {
+                                    'address_type': address_type,
+                                    'fullClipboardContent': content[:500],
+                                    'detected_at': datetime.now().isoformat(),
+                                    'detection_method': 'fallback_validation',
+                                    'risk_level': 'HIGH'
+                                }
+                            }
+                            self.violation_reporter.report_violation(enhanced_violation_data)
                             self._stats['violations_reported'] += 1
                             self.logger.warning(f"检测到违规区块链地址: {address} (类型: {address_type})")
                         except Exception as e:
@@ -612,7 +643,21 @@ class BlockchainAddressDetector:
                 # 上报违规事件
                 if self.violation_reporter:
                     try:
-                        self.violation_reporter.report_violation(violation_data)
+                        # 更新违规数据格式
+                        enhanced_violation_data = {
+                            'clientId': client_id or 'unknown',
+                            'violationType': 'BLOCKCHAIN_ADDRESS',
+                            'violationContent': address,
+                            'report_time': datetime.now().isoformat(),
+                            'additionalData': {
+                                'address_type': address_type,
+                                'fullClipboardContent': content[:500],
+                                'detected_at': datetime.now().isoformat(),
+                                'detection_method': 'no_whitelist',
+                                'risk_level': 'HIGH'
+                            }
+                        }
+                        self.violation_reporter.report_violation(enhanced_violation_data)
                         self._stats['violations_reported'] += 1
                         self.logger.warning(f"检测到违规区块链地址: {address} (类型: {address_type})")
                     except Exception as e:
@@ -683,7 +728,17 @@ class BlockchainAddressDetector:
             return True
         
         try:
-            return self.whitelist_manager.is_whitelisted(address)
+            # 兼容不同版本白名单接口
+            if hasattr(self.whitelist_manager, 'is_whitelisted'):
+                return self.whitelist_manager.is_whitelisted(address)
+            elif hasattr(self.whitelist_manager, 'is_address_whitelisted'):
+                return self.whitelist_manager.is_address_whitelisted(address, None)
+            elif hasattr(self.whitelist_manager, 'validate_addresses'):
+                res = self.whitelist_manager.validate_addresses([address])
+                return address in res.get('whitelisted', [])
+            else:
+                self.logger.warning("白名单管理器不支持检查接口，默认不在白名单")
+                return False
         except Exception as e:
             self.logger.error(f"检查白名单时出错: {e}")
             return False  # 出错时默认为不在白名单中

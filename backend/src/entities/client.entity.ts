@@ -152,6 +152,21 @@ export class Client extends BaseEntity {
   })
   isActive: boolean;
 
+  @Column({
+    type: 'varchar',
+    length: 1000,
+    nullable: true,
+    comment: '最新截图URL',
+  })
+  latestScreenshotUrl: string;
+
+  @Column({
+    type: 'datetime',
+    nullable: true,
+    comment: '最后截图时间',
+  })
+  lastScreenshotTime: Date;
+
   // 关联关系
   @ManyToOne(() => ClientGroup, group => group.clients)
   @JoinColumn({ name: 'group_id' })

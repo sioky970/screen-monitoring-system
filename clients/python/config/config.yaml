@@ -2,10 +2,10 @@
 
 # 服务器配置
 server:
-  # 后端API地址 - 生产环境
-  api_base_url: "http://43.160.250.175:3001/api"
-  # WebSocket地址 - 生产环境（已移除WebSocket功能）
-  websocket_url: "ws://43.160.250.175:3001/monitor"
+  # 后端API地址 - 本地测试环境
+  api_base_url: "http://localhost:3001/api"
+  # WebSocket地址 - 本地测试环境（已移除WebSocket功能）
+  websocket_url: "ws://localhost:3001/monitor"
   # 请求超时时间（秒）
   timeout: 30
   # 最大重试次数
@@ -46,6 +46,19 @@ screenshot:
   format: "JPEG"
   # 是否只截取主屏幕
   primary_screen_only: true
+
+  # 违规截图专用配置（更高质量）
+  violation:
+    # 违规截图质量（1-100，建议85-95）
+    quality: 90
+    # 违规截图最大长边像素（更高分辨率）
+    max_long_side: 2560
+    # 违规截图最大文件大小（字节）
+    max_file_size: 2097152  # 2MB
+    # 是否启用无损优化
+    lossless_optimization: true
+    # 是否保留原始分辨率
+    preserve_resolution: true
 
 # 剪贴板监控配置
 clipboard:

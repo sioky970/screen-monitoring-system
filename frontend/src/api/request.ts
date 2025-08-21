@@ -35,8 +35,13 @@ request.interceptors.request.use(
       console.log(`[API] 没有token，未设置Authorization头`)
     }
 
+    // 统一规范 URL：去掉开头的斜杠，让 baseURL 正确生效（/api + auth/login => /api/auth/login）
+    if (typeof config.url === 'string' && config.url.startsWith('/')) {
+      config.url = config.url.replace(/^\//, '')
+    }
+
     // 记录请求日志
-    log.debug('API', `Request: ${config.method?.toUpperCase()} ${config.url}`, {
+    log.debug('API', `Request: ${config.method?.toUpperCase()} ${config.baseURL || ''}/${config.url}`, {
       params: config.params,
       data: config.data,
       headers: {

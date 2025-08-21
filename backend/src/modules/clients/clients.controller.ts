@@ -9,8 +9,11 @@ import {
   Query,
   UseGuards,
   ParseIntPipe,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiConsumes } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
@@ -197,5 +200,35 @@ export class ClientsController {
   @ApiResponse({ status: 400, description: '该分组下还有客户端，无法删除' })
   removeGroup(@Param('id', ParseIntPipe) id: number) {
     return this.clientsService.removeGroup(id);
+  }
+
+  @Public()
+  @Post(':id/screenshot')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: '上传客户端常规截图' })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 201, description: '上传成功' })
+  @ApiResponse({ status: 404, description: '客户端不存在' })
+  async uploadScreenshot(
+    @Param('id') clientId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() metadata?: any
+  ) {
+    return this.clientsService.uploadScreenshot(clientId, file, metadata);
+  }
+
+  @Public()
+  @Get(':id/latest-normal-screenshot-url')
+  @ApiOperation({ summary: '获取客户端最新非违规截图URL（测试用）' })
+  @ApiResponse({ status: 200, description: '获取成功' })
+  async getLatestNormalScreenshotUrl(@Param('id') id: string) {
+    const url = await this.clientsService.getLatestNormalScreenshotUrl(id);
+    return {
+      code: 200,
+      message: '操作成功',
+      data: { url },
+      success: true,
+      timestamp: new Date().toISOString(),
+    };
   }
 }

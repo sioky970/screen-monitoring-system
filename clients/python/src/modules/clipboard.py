@@ -206,20 +206,32 @@ class ClipboardMonitor:
         try:
             if WINDOWS_CLIPBOARD:
                 # Windows平台使用win32clipboard
-                win32clipboard.OpenClipboard()
-                
+                for _ in range(3):
+                    try:
+                        win32clipboard.OpenClipboard()
+                        break
+                    except Exception:
+                        time.sleep(0.05)
+
                 # 检查是否有文本格式
                 if not win32clipboard.IsClipboardFormatAvailable(win32con.CF_UNICODETEXT):
+                    try:
+                        win32clipboard.CloseClipboard()
+                    except:
+                        pass
                     return None
-                
+
                 # 获取文本内容
                 content = win32clipboard.GetClipboardData(win32con.CF_UNICODETEXT)
-                
-                win32clipboard.CloseClipboard()
+
+                try:
+                    win32clipboard.CloseClipboard()
+                except:
+                    pass
             else:
                 # 其他平台使用pyperclip
                 content = pyperclip.paste()
-                
+
                 if not content:
                     return None
             
@@ -330,7 +342,17 @@ class ClipboardMonitor:
             return False
         
         try:
-            return self.whitelist_manager.is_address_whitelisted(address, blockchain_type)
+            # 兼容不同版本的白名单接口
+            if hasattr(self.whitelist_manager, 'is_address_whitelisted'):
+                return self.whitelist_manager.is_address_whitelisted(address, blockchain_type)
+            elif hasattr(self.whitelist_manager, 'is_whitelisted'):
+                return self.whitelist_manager.is_whitelisted(address)
+            elif hasattr(self.whitelist_manager, 'validate_addresses'):
+                res = self.whitelist_manager.validate_addresses([address])
+                return address in res.get('whitelisted', [])
+            else:
+                self.logger.warning("白名单管理器不支持检查接口，默认视为不在白名单")
+                return False
         except Exception as e:
             self.logger.error(f"白名单检查异常: {e}")
             return False
@@ -518,20 +540,29 @@ class ClipboardMonitor:
         """
         try:
             if WINDOWS_CLIPBOARD:
-                # Windows平台使用win32clipboard
-                win32clipboard.OpenClipboard()
-                win32clipboard.EmptyClipboard()
-                win32clipboard.CloseClipboard()
+                # Windows平台使用win32clipboard，增加重试以提升成功率
+                success = False
+                for _ in range(3):
+                    try:
+                        win32clipboard.OpenClipboard()
+                        win32clipboard.EmptyClipboard()
+                        win32clipboard.CloseClipboard()
+                        success = True
+                        break
+                    except Exception as e:
+                        time.sleep(0.05)
+                if not success:
+                    raise RuntimeError('OpenClipboard/EmptyClipboard failed after retries')
             else:
                 # 其他平台使用pyperclip
                 pyperclip.copy("")
-            
+
             # 更新本地记录的剪贴板内容
             self._last_clipboard_content = ""
-            
+
             self.logger.info("剪贴板已清空")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"清空剪贴板失败: {e}")
             return False

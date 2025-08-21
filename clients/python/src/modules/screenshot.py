@@ -321,14 +321,9 @@ class ScreenshotManager:
         # 获取剪贴板内容
         clipboard_content = self._get_clipboard_content()
         
-        # 本地检测区块链地址
-        detection_result = self.blockchain_detector.detect_and_validate(clipboard_content)
-        
-        # 如果检测到违规地址，记录日志并上报
-        if detection_result['has_violations']:
-            self.logger.warning(f"检测到违规区块链地址: {detection_result['violations']}")
-            # 违规事件已在detector中自动上报
-        
+        # 按单一职责：截图上传路径不再执行区块链检测，避免与剪贴板监控重复
+        detection_result = None
+
         # 准备文件数据
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"screenshot_{timestamp}.{self.config.screenshot.format.lower()}"
@@ -361,10 +356,10 @@ class ScreenshotManager:
         if clipboard_content:
             data['clipboardContent'] = clipboard_content
 
-        detected_addresses = detection_result.get('detected_addresses', [])
-        if detected_addresses:
-            data['detectedAddresses'] = ','.join(detected_addresses)
-            data['hasViolations'] = str(detection_result['has_violations']).lower()
+        # 不在截图上传流程中附带检测结果，避免引发重复上报或额外负担
+        # 仍保留剪贴板内容 metadata 供后端必要时分析
+        # detectedAddresses / hasViolations 字段不再由截图路径提供
+
         
         # 重试上传
         for attempt in range(self.config.server.max_retries):

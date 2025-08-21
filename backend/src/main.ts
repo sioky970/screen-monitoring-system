@@ -102,7 +102,7 @@ async function bootstrap() {
       .setVersion('1.0.0')
       .setContact('开发团队', 'https://github.com/your-org/screen-monitor', 'dev@yourcompany.com')
       .setLicense('MIT', 'https://opensource.org/licenses/MIT')
-      .addServer('http://localhost:3003', '开发环境')
+      .addServer('http://localhost:3001', '开发环境')
       .addServer('https://api.yourcompany.com', '生产环境')
       .addBearerAuth(
         {
@@ -185,7 +185,7 @@ async function bootstrap() {
     });
   });
 
-  const port = configService.get('PORT', 3003);
+  const port = configService.get('PORT', 3001);
   await app.listen(port, '0.0.0.0');
 
   const nodeEnv = configService.get('NODE_ENV', 'development');

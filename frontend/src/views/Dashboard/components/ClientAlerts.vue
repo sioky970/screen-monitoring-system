@@ -128,8 +128,9 @@
       :row-selection="rowSelection"
       @change="handleTableChange"
       size="middle"
-      row-key="alertId"
+      row-key="_key"
       class="alerts-table"
+      :key="tableKey"
     >
       <template #bodyCell="{ column, record }">
         <!-- 违规详情 -->
@@ -144,32 +145,30 @@
               <a-tag size="small" :color="getAddressTypeColor(record.addressType)">
                 {{ getAddressTypeText(record.addressType) }}
               </a-tag>
-              <a-tag size="small" :color="getRiskLevelColor(record.riskLevel)">
-                {{ getRiskLevelText(record.riskLevel) }}
-              </a-tag>
             </div>
           </div>
         </template>
         
         <!-- 时间信息 -->
         <template v-if="column.key === 'time'">
-          <div class="time-info">
+          <div class="time-info" :key="record._key">
             <div class="time-main">
-              {{ dayjs(record.createdAt).format('MM-DD HH:mm') }}
+              {{ formatDateTime(record.createdAt) }}
             </div>
             <div class="time-sub">
-              {{ dayjs(record.createdAt).fromNow() }}
+              {{ formatTimeAgo(record.createdAt) }}
             </div>
+
           </div>
         </template>
         
         <!-- 状态 -->
         <template v-if="column.key === 'status'">
-          <a-tag :color="getAlertStatusColor(record.alertStatus)" class="status-tag">
+          <a-tag :color="getAlertStatusColor(record.status)" class="status-tag">
             <template #icon>
-              <component :is="getStatusIcon(record.alertStatus)" />
+              <component :is="getStatusIcon(record.status)" />
             </template>
-            {{ getAlertStatusText(record.alertStatus) }}
+            {{ getAlertStatusText(record.status) }}
           </a-tag>
         </template>
         
@@ -201,7 +200,7 @@
               </a-button>
             </a-tooltip>
             
-            <a-dropdown v-if="record.alertStatus !== 'ignored'">
+            <a-dropdown v-if="record.status !== 'ignored'">
               <a-button type="text" size="small">
                 <template #icon>
                   <MoreOutlined />
@@ -247,7 +246,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
@@ -299,6 +298,7 @@ const dateRange = ref<[string, string] | undefined>()
 const selectedRowKeys = ref<string[]>([])
 const detailDrawerVisible = ref(false)
 const selectedAlert = ref<any>(null)
+const tableKey = ref(0)
 
 // 分页配置
 const alertsPagination = reactive({
@@ -309,6 +309,43 @@ const alertsPagination = reactive({
   showQuickJumper: true,
   showTotal: (total: number, range: [number, number]) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`
 })
+
+// 时间格式化函数
+const formatDateTime = (timeStr: string) => {
+  try {
+    const date = new Date(timeStr)
+    // 使用 toLocaleString 正确格式化日期时间
+    return date.toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+  } catch (error) {
+    console.error('时间格式化错误:', error, timeStr)
+    return timeStr
+  }
+}
+
+const formatTimeAgo = (timeStr: string) => {
+  try {
+    return dayjs(timeStr).fromNow()
+  } catch (error) {
+    console.error('时间相对格式化错误:', error, timeStr)
+    return timeStr
+  }
+}
+
+// 格式化函数
+const formatStatus = (status: string) => {
+  const statusMap = {
+    'pending': { text: '待处理', color: 'green' },
+    'ignored': { text: '已忽略', color: 'default' },
+    'confirmed': { text: '已确认', color: 'red' }
+  }
+  return statusMap[status] || { text: status, color: 'default' }
+}
 
 // 表格列配置
 const alertColumns = [
@@ -342,7 +379,7 @@ const rowSelection = {
     selectedRowKeys.value = keys
   },
   getCheckboxProps: (record: any) => ({
-    disabled: record.alertStatus === 'ignored'
+    disabled: record.status === 'ignored'
   })
 }
 
@@ -357,7 +394,7 @@ const alertsStats = computed(() => {
   }
   
   clientAlerts.value.forEach(alert => {
-    const status = alert.alertStatus
+    const status = alert.status
     if (status in stats) {
       stats[status as keyof typeof stats]++
     }
@@ -390,8 +427,19 @@ const refreshAlerts = async () => {
     }
     
     const res = await securityApi.getClientAlerts(params)
-    clientAlerts.value = res.data.alerts || []
-    alertsPagination.total = res.data.total || 0
+    // 后端响应结构: { code: 200, data: { success: true, data: { alerts: [...], total: 8 } } }
+    const alertsData = res.data?.data || res.data
+
+    // 确保每条记录都有唯一的key，强制Vue重新渲染
+    const alerts = (alertsData?.alerts || []).map((alert, index) => ({
+      ...alert,
+      _key: `${alert.id}-${alert.createdAt}-${index}` // 添加唯一key
+    }))
+
+    clientAlerts.value = alerts
+    alertsPagination.total = alertsData?.total || 0
+    // 强制重新渲染表格
+    tableKey.value++
   } catch (error) {
     message.error('刷新违规事件失败')
     log.error('ClientAlerts', 'Failed to refresh alerts', error)
@@ -495,13 +543,24 @@ const ignoreAllAlerts = async () => {
 
 // 显示违规事件截图
 const showAlertScreenshot = (alert: any) => {
-  let url = alert.cdnUrl || alert.fileUrl || alert.screenshotUrl
-  
-  // 如果没有直接的URL，尝试从MinIO信息构建URL
-  if (!url && alert.minioBucket && alert.minioObjectKey) {
+  let url = ''
+
+  // 优先使用screenshotUrl（新的字段）
+  if (alert.screenshotUrl) {
+    url = alert.screenshotUrl.startsWith('/storage/') ? alert.screenshotUrl : `/storage/${alert.screenshotUrl}`
+  }
+  // 兼容旧的字段
+  else if (alert.cdnUrl) {
+    url = alert.cdnUrl
+  }
+  else if (alert.fileUrl) {
+    url = alert.fileUrl.startsWith('/storage/') ? alert.fileUrl : `/storage/${alert.fileUrl}`
+  }
+  // 从MinIO信息构建URL
+  else if (alert.minioBucket && alert.minioObjectKey) {
     url = `/storage/${alert.minioBucket}/${alert.minioObjectKey}`
   }
-  
+
   if (url) {
     const title = `违规截图 - ${dayjs(alert.createdAt || alert.screenshotTime || alert.created_at).format('YYYY-MM-DD HH:mm:ss')}`
     emit('show-screenshot', url, title)
@@ -537,6 +596,11 @@ const hasScreenshotUrl = (record: any) => {
 // 获取地址类型颜色
 const getAddressTypeColor = (type: string) => {
   const colors = {
+    'BITCOIN': 'orange',
+    'BITCOIN_BECH32': 'gold',
+    'ETHEREUM': 'blue',
+    'OTHER': 'default',
+    // 兼容小写
     'bitcoin': 'orange',
     'ethereum': 'blue',
     'other': 'default'
@@ -547,6 +611,11 @@ const getAddressTypeColor = (type: string) => {
 // 获取地址类型文本
 const getAddressTypeText = (type: string) => {
   const texts = {
+    'BITCOIN': 'BTC',
+    'BITCOIN_BECH32': 'BTC (Bech32)',
+    'ETHEREUM': 'ETH',
+    'OTHER': '其他',
+    // 兼容小写
     'bitcoin': 'BTC',
     'ethereum': 'ETH',
     'other': '其他'
@@ -557,9 +626,15 @@ const getAddressTypeText = (type: string) => {
 // 获取风险等级颜色
 const getRiskLevelColor = (level: string) => {
   const colors = {
+    'HIGH': 'red',
+    'MEDIUM': 'orange',
+    'LOW': 'green',
+    'CRITICAL': 'volcano',
+    // 兼容小写
     'high': 'red',
     'medium': 'orange',
-    'low': 'green'
+    'low': 'green',
+    'critical': 'volcano'
   }
   return colors[level as keyof typeof colors] || 'default'
 }
@@ -567,9 +642,15 @@ const getRiskLevelColor = (level: string) => {
 // 获取风险等级文本
 const getRiskLevelText = (level: string) => {
   const texts = {
+    'HIGH': '高风险',
+    'MEDIUM': '中风险',
+    'LOW': '低风险',
+    'CRITICAL': '严重',
+    // 兼容小写
     'high': '高风险',
     'medium': '中风险',
-    'low': '低风险'
+    'low': '低风险',
+    'critical': '严重'
   }
   return texts[level as keyof typeof texts] || level
 }
@@ -606,6 +687,18 @@ const getStatusIcon = (status: string) => {
   }
   return icons[status as keyof typeof icons] || ClockCircleOutlined
 }
+
+// 监听客户端变化，重新加载违规数据
+watch(() => props.client, (newClient, oldClient) => {
+  if (newClient && newClient.id !== oldClient?.id) {
+    // 重置分页到第一页
+    alertsPagination.current = 1
+    // 清空选中的行
+    selectedRowKeys.value = []
+    // 重新加载数据
+    refreshAlerts()
+  }
+}, { immediate: false })
 
 // 组件挂载时加载数据
 onMounted(() => {

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
-import { Repository, In, DataSource } from 'typeorm';
+import { Repository, In, Or, IsNull, DataSource } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { Client, ClientStatus } from '../../entities/client.entity';
 import { ClientGroup } from '../../entities/client-group.entity';
@@ -132,9 +132,12 @@ export class ClientsService implements OnModuleInit, OnModuleDestroy {
             ? ClientStatus.OFFLINE
             : client.status;
 
+        // 获取最新的非违规截图URL（用于客户端卡片缩略图显示）
+        const latestNormalScreenshotUrl = await this.getLatestNormalScreenshotUrl(client.id);
+
         return {
           ...client,
-          latestScreenshotUrl: await this.minioService.getCurrentScreenshotUrl(client.id),
+          latestScreenshotUrl: latestNormalScreenshotUrl,
           alertCount,
           status: derivedStatus,
         };
@@ -155,6 +158,38 @@ export class ClientsService implements OnModuleInit, OnModuleDestroy {
       where: { clientId },
       order: { screenshotTime: 'DESC' },
     });
+  }
+
+  // 获取客户端最新的非违规截图URL（用于前端卡片缩略图显示）
+  async getLatestNormalScreenshotUrl(clientId: string): Promise<string> {
+    try {
+      this.logger.debug(`开始查询客户端 ${clientId} 的最新非违规截图`);
+
+      // 查找最新的非违规截图（detectedAddress为空或null，或者alertStatus为ignored的记录）
+      const latestNormalScreenshot = await this.screenshotRepository
+        .createQueryBuilder('screenshot')
+        .where('screenshot.clientId = :clientId', { clientId })
+        .andWhere('(screenshot.detectedAddress = :emptyAddress OR screenshot.detectedAddress IS NULL)', {
+          emptyAddress: ''
+        })
+        .orderBy('screenshot.screenshotTime', 'DESC')
+        .getOne();
+
+      if (latestNormalScreenshot && latestNormalScreenshot.fileUrl) {
+        this.logger.debug(`找到最新非违规截图: ${latestNormalScreenshot.fileUrl} (ID: ${latestNormalScreenshot.id}, 时间: ${latestNormalScreenshot.screenshotTime})`);
+        return latestNormalScreenshot.fileUrl;
+      }
+
+      this.logger.debug(`未找到非违规截图，回退到当前截图URL`);
+      // 如果没有找到非违规截图，回退到当前截图URL
+      const fallbackUrl = await this.minioService.getCurrentScreenshotUrl(clientId);
+      this.logger.debug(`回退URL: ${fallbackUrl}`);
+      return fallbackUrl;
+    } catch (error) {
+      this.logger.error(`查询非违规截图失败: ${error.message}`);
+      // 如果查询失败，回退到当前截图URL
+      return await this.minioService.getCurrentScreenshotUrl(clientId);
+    }
   }
 
   // 获取客户端违规事件数量（仅统计未处理的）
@@ -196,19 +231,9 @@ export class ClientsService implements OnModuleInit, OnModuleDestroy {
       throw new NotFoundException(`客户端 ${id} 不存在`);
     }
 
-    // 获取最新截图
-    let latestScreenshot = null;
-    let latestScreenshotTime = null;
-    try {
-      const screenshot = await this.getLatestScreenshot(id);
-      if (screenshot) {
-        // 动态生成当前可用的截图 URL
-        latestScreenshot = await this.minioService.getFileUrl(`screenshots/${id}/current.jpg`);
-        latestScreenshotTime = screenshot.screenshotTime;
-      }
-    } catch (error) {
-      // 截图获取失败不影响其他信息
-    }
+    // 获取最新截图 - 使用客户端表中的字段
+    let latestScreenshot = client.latestScreenshotUrl;
+    let latestScreenshotTime = client.lastScreenshotTime;
 
     // 获取违规事件（最近50条）
     const securityAlerts = await this.dataSource.query(
@@ -252,33 +277,27 @@ export class ClientsService implements OnModuleInit, OnModuleDestroy {
     });
 
     return {
-      code: 200,
-      message: '获取成功',
-      data: {
-        // 基本信息
-        client: {
-          ...client,
-          latestScreenshot,
-          latestScreenshotTime,
-        },
-        // 违规事件
-        securityAlerts: securityAlerts.map(alert => ({
-          ...alert,
-          createdAt: alert.createdAt,
-          alertType: alert.alertType,
-          status: alert.status || 'pending',
-        })),
-        // 在线统计
-        onlineStats: {
-          totalSessions: parseInt(onlineStats[0]?.totalSessions || '0'),
-          totalOnlineTime: parseInt(onlineStats[0]?.totalOnlineTime || '0'),
-          lastOnlineTime: onlineStats[0]?.lastOnlineTime || null,
-        },
-        // 可用分组
-        availableGroups: allGroups,
+      // 基本信息
+      client: {
+        ...client,
+        latestScreenshot,
+        latestScreenshotTime,
       },
-      success: true,
-      timestamp: new Date(),
+      // 违规事件
+      securityAlerts: securityAlerts.map(alert => ({
+        ...alert,
+        createdAt: alert.createdAt,
+        alertType: alert.alertType,
+        status: alert.status || 'pending',
+      })),
+      // 在线统计
+      onlineStats: {
+        totalSessions: parseInt(onlineStats[0]?.totalSessions || '0'),
+        totalOnlineTime: parseInt(onlineStats[0]?.totalOnlineTime || '0'),
+        lastOnlineTime: onlineStats[0]?.lastOnlineTime || null,
+      },
+      // 可用分组
+      availableGroups: allGroups,
     };
   }
 
@@ -299,7 +318,7 @@ export class ClientsService implements OnModuleInit, OnModuleDestroy {
       });
 
       if (existingClient) {
-        // 更新客户端信息
+        // 更新客户端信息（不更新计算机名称，以首次注册或管理后台录入的为准）
         existingClient.lastHeartbeat = new Date();
         if (registerDto.ipAddress) {
           existingClient.ipAddress = registerDto.ipAddress;
@@ -310,6 +329,7 @@ export class ClientsService implements OnModuleInit, OnModuleDestroy {
         if (registerDto.version) {
           existingClient.clientVersion = registerDto.version;
         }
+        // 注意：不更新 computerName，保持首次注册或管理后台设置的值
 
         await this.clientRepository.save(existingClient);
 
@@ -742,6 +762,69 @@ export class ClientsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * 上传客户端常规截图
+   * @param clientId 客户端ID
+   * @param file 截图文件
+   * @param metadata 元数据
+   * @returns 上传结果
+   */
+  async uploadScreenshot(
+    clientId: string,
+    file: Express.Multer.File,
+    metadata?: any
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      screenshotUrl: string;
+      fileSize: number;
+      uploadTime: string;
+    };
+  }> {
+    try {
+      // 1. 验证客户端是否存在
+      const client = await this.clientRepository.findOne({
+        where: { id: clientId },
+      });
+
+      if (!client) {
+        throw new NotFoundException(`客户端 ${clientId} 不存在`);
+      }
+
+      // 2. 上传截图到MinIO
+      const objectKey = `screenshots/${clientId}/current.jpg`;
+      const uploadResult = await this.minioService.uploadFile(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        `screenshots/${clientId}`,
+        true // 强制覆盖
+      );
+
+      // 3. 更新客户端的最新截图URL
+      await this.clientRepository.update(clientId, {
+        latestScreenshotUrl: uploadResult.url,
+        lastScreenshotTime: new Date(),
+      });
+
+      this.logger.log(`客户端 ${clientId} 截图上传成功: ${uploadResult.url}`);
+
+      return {
+        success: true,
+        message: '截图上传成功',
+        data: {
+          screenshotUrl: uploadResult.url,
+          fileSize: file.size,
+          uploadTime: new Date().toISOString(),
+        },
+      };
+    } catch (error) {
+      this.logger.error(`客户端 ${clientId} 截图上传失败: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
    * 处理客户端心跳
    * @param heartbeatDto 心跳数据
    * @returns 处理结果
@@ -792,7 +875,8 @@ export class ClientsService implements OnModuleInit, OnModuleDestroy {
         };
 
         if (heartbeatDto.ipAddress) updateData.ipAddress = heartbeatDto.ipAddress;
-        if (heartbeatDto.hostname) updateData.computerName = heartbeatDto.hostname;
+        // 注意：不更新 computerName，保持首次注册或管理后台设置的值
+        // if (heartbeatDto.hostname) updateData.computerName = heartbeatDto.hostname;
         if (heartbeatDto.osInfo) updateData.osVersion = heartbeatDto.osInfo;
         if (heartbeatDto.version) updateData.clientVersion = heartbeatDto.version;
         if (heartbeatDto.metadata) updateData.settings = heartbeatDto.metadata;

@@ -1,41 +1,43 @@
-# 屏幕监控系统
+# 🖥️ 屏幕监控系统
 
-## 项目概述
+[![Docker Build](https://github.com/your-username/screen-monitoring-system/actions/workflows/docker-build.yml/badge.svg)](https://github.com/your-username/screen-monitoring-system/actions/workflows/docker-build.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
+[![Docker](https://img.shields.io/badge/docker-%3E%3D20.10-blue.svg)](https://www.docker.com/)
 
-本项目是一个基于现代化技术栈的企业级桌面监控系统，支持多客户端实时屏幕截图传输、存储和管理，并具备区块链地址安全监控功能。
+一个基于 Web 的企业级屏幕监控和安全管理系统，支持实时截图监控、智能违规检测和客户端管理。
 
-## 核心功能
+## ✨ 功能特性
 
-### 🔍 实时监控
-- 🖥️ **屏幕截图监控**：实时捕获客户端屏幕，支持自定义间隔
-- 📋 **剪贴板审核**：智能检测剪贴板中的敏感内容
-- ⏰ **在线状态追踪**：实时显示客户端在线状态和最后活跃时间
+- 🖥️ **实时屏幕监控**: 定期截图并上传到服务器，支持多客户端管理
+- 🔍 **智能违规检测**: 自动检测区块链地址、敏感内容等违规行为
+- 👥 **客户端管理**: 支持客户端分组、状态监控和远程配置管理
+- 📊 **数据统计**: 提供详细的监控数据和统计报表
+- 🔐 **安全管理**: 支持白名单管理、权限控制和访问审计
+- 🌐 **Web 管理界面**: 现代化的响应式管理后台界面
+- 🐳 **Docker 支持**: 一键部署，支持开发和生产环境
+- 📱 **多平台客户端**: 支持 Windows/Linux/macOS 客户端
 
-### 🛡️ 安全防护
-- 🔗 **区块链地址检测**：支持20+种加密货币地址格式识别
-- 🧠 **智能风险评估**：基于关键词和上下文的多维度风险分析
-- 🗑️ **自动清空机制**：检测到违规内容立即清空剪贴板
-- 📝 **白名单管理**：灵活的地址白名单系统
+## 🏗️ 技术栈
 
-### 📊 管理界面
-- 🖼️ **实时屏幕墙**：网格化显示所有客户端状态
-- 🚨 **违规事件追踪**：详细的违规记录和处理流程
-- 👥 **分组管理**：支持客户端分组和批量操作
-- 📈 **统计报表**：全面的监控数据统计分析
+### 后端技术
+- **框架**: NestJS + TypeScript
+- **数据库**: MySQL 8.0 + TypeORM
+- **缓存**: Redis 6.0+
+- **存储**: MinIO (对象存储)
+- **认证**: JWT + 权限控制
+- **API文档**: Swagger/OpenAPI
 
-### 🔐 增强的安全检测
+### 前端技术
+- **框架**: Vue 3 + TypeScript + Composition API
+- **UI库**: Ant Design Vue 4.x
+- **构建工具**: Vite 4.x
+- **状态管理**: Pinia
+- **路由**: Vue Router 4.x
 
-#### 支持的加密货币类型
-- **比特币 (BTC)**：Legacy, SegWit, Bech32, Taproot
-- **以太坊 (ETH)**：标准地址, ENS域名
-- **波场 (TRX)**：TRX地址格式
-- **莱特币 (LTC)**：多种地址格式
-- **其他币种**：DOGE, BCH, XRP, ADA, DOT, SOL, BNB, MATIC等
-
-#### 智能风险评估
-- **关键词检测**：洗钱、暗网、赌博、诈骗等高风险词汇
-- **上下文分析**：结合金额和交易信息评估风险等级
-- **风险等级**：low, medium, high, critical 四级分类
+### 客户端技术
+- **Python客户端**: 跨平台支持，基于 PyQt/Tkinter
+- **功能**: 屏幕截图、剪贴板监控、违规检测、自动更新
 
 ## 技术架构
 

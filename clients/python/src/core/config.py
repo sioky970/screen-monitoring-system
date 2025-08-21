@@ -21,8 +21,8 @@ from urllib.parse import urlparse
 @dataclass
 class ServerConfig:
     """服务器配置"""
-    api_base_url: str = "http://localhost:47831/api"
-    websocket_url: str = "ws://localhost:3005/monitor"
+    api_base_url: str = "http://localhost:3001/api"
+    websocket_url: str = "ws://localhost:3001/monitor"
     timeout: int = 30
     max_retries: int = 3
     retry_delay: int = 1
@@ -47,6 +47,16 @@ class ClientConfig:
 
 
 @dataclass
+class ViolationScreenshotConfig:
+    """违规截图专用配置"""
+    quality: int = 90
+    max_long_side: int = 2560
+    max_file_size: int = 2097152  # 2MB
+    lossless_optimization: bool = True
+    preserve_resolution: bool = True
+
+
+@dataclass
 class ScreenshotConfig:
     """屏幕截图配置"""
     interval: int = 15
@@ -55,6 +65,7 @@ class ScreenshotConfig:
     max_file_size: int = 307200  # 300KB
     format: str = "JPEG"
     primary_screen_only: bool = True
+    violation: ViolationScreenshotConfig = field(default_factory=ViolationScreenshotConfig)
 
 
 @dataclass

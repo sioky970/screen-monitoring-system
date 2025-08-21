@@ -49,7 +49,7 @@
         <div class="screenshot-container">
           <a-spin :spinning="imageLoading">
             <img
-              v-if="violation.fileUrl"
+              v-if="getImageUrl(violation)"
               :src="getImageUrl(violation)"
               :alt="`违规截图 - ${violation.id}`"
               class="screenshot-image"
@@ -150,14 +150,15 @@ const handleUpdateStatus = async (status: AlertStatus) => {
 }
 
 const handleDownload = async () => {
-  if (!props.violation?.fileUrl) {
+  const imageUrl = getImageUrl(props.violation)
+  if (!imageUrl) {
     message.error('无可下载的截图')
     return
   }
   
   downloadLoading.value = true
   try {
-    const response = await fetch(getImageUrl(props.violation))
+    const response = await fetch(imageUrl)
     const blob = await response.blob()
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -177,18 +178,34 @@ const handleDownload = async () => {
 
 // 工具函数
 const getImageUrl = (violation: SecurityAlert): string => {
-  // 如果fileUrl已经是完整URL，直接返回
-  if (violation.fileUrl?.startsWith('http://') || violation.fileUrl?.startsWith('https://')) {
-    return violation.fileUrl
+  // 优先使用screenshotUrl（新的字段）
+  if (violation.screenshotUrl) {
+    // 如果已经是完整URL，直接返回
+    if (violation.screenshotUrl.startsWith('http://') || violation.screenshotUrl.startsWith('https://')) {
+      return violation.screenshotUrl
+    }
+    // 如果已经是/storage/开头的路径，直接返回
+    if (violation.screenshotUrl.startsWith('/storage/')) {
+      return violation.screenshotUrl
+    }
+    // 否则添加/storage/前缀
+    return `/storage/${violation.screenshotUrl}`
   }
 
-  // 使用minioObjectKey构建URL，因为它已经包含了完整的路径
+  // 兼容旧的fileUrl字段
+  if (violation.fileUrl) {
+    if (violation.fileUrl.startsWith('http://') || violation.fileUrl.startsWith('https://')) {
+      return violation.fileUrl
+    }
+    return violation.fileUrl.startsWith('/storage/') ? violation.fileUrl : `/storage/${violation.fileUrl}`
+  }
+
+  // 使用minioObjectKey构建URL
   if (violation.minioObjectKey) {
     return `/storage/${violation.minioObjectKey}`
   }
 
-  // 兜底：直接使用fileUrl
-  return violation.fileUrl ? `/storage/${violation.fileUrl}` : ''
+  return ''
 }
 
 const getRiskLevelColor = (level: RiskLevel): string => {

@@ -1,7 +1,6 @@
 <template>
   <a-modal
     :open="visible"
-    :title="modalTitle"
     :width="modalWidth"
     :footer="null"
     :destroy-on-close="true"
@@ -11,9 +10,23 @@
     @cancel="handleClose"
     @update:open="$emit('update:visible', $event)"
   >
+    <template #title>
+      <div class="cdm-header" v-if="client">
+        <div class="cdm-header-main">
+          <span class="cdm-title">{{ client.computerName }}</span>
+          <a-tag :color="statusBadge.color" class="cdm-status">{{ statusBadge.text }}</a-tag>
+        </div>
+        <div class="cdm-header-meta">
+          <a-tag class="cdm-group" color="blue">{{ client.group?.name || '未分组' }}</a-tag>
+          <span class="cdm-meta-item">编号：{{ client.clientNumber }}</span>
+          <span class="cdm-dot" />
+          <span class="cdm-meta-item">最后在线：{{ lastSeenText }}</span>
+        </div>
+      </div>
+    </template>
     <div v-if="client" class="modal-content">
       <!-- 标签页 -->
-      <a-tabs v-model:activeKey="activeTab" type="card">
+      <a-tabs v-model:activeKey="activeTab" type="line" :tabBarGutter="16">
         <!-- 基本信息标签页 -->
         <a-tab-pane key="info" tab="基本信息">
           <ClientBasicInfo
@@ -21,6 +34,7 @@
             :client-groups="clientGroups"
             :saving="isSaving"
             :deleting="isDeleting"
+            :image-refresh-timestamp="imageRefreshTimestamp"
             @save="handleSaveClient"
             @delete="handleDeleteClient"
             @show-screenshot="handleShowScreenshot"
@@ -59,17 +73,29 @@
               :loading="violationsLoading"
               :pagination="violationTablePagination"
               row-key="id"
-              size="middle"
+              size="small"
+              :bordered="false"
+              class="cdm-table"
+              :tableLayout="'fixed'"
             >
               <template #bodyCell="{ column, record }">
-                <template v-if="column.key === 'screenshotTime'">
-                  {{ formatTime(record.screenshotTime) }}
+                <template v-if="column.key === 'createdAt'">
+                  {{ formatTime(record.createdAt) }}
                 </template>
                 <template v-else-if="column.key === 'detectedAddress'">
                   <span v-if="record.detectedAddress" class="address-text">
                     {{ record.detectedAddress }}
                   </span>
                   <span v-else class="no-address">-</span>
+                </template>
+                <template v-else-if="column.key === 'addressType'">
+                  <a-tag color="blue">{{ record.addressType || '-' }}</a-tag>
+                </template>
+
+                <template v-else-if="column.key === 'status'">
+                  <a-tag :color="getStatusColor(record.status)">
+                    {{ getStatusText(record.status) }}
+                  </a-tag>
                 </template>
                 <template v-else-if="column.key === 'actions'">
                   <a-space>
@@ -82,7 +108,7 @@
                       查看截图
                     </a-button>
                     <a-button
-                      v-if="record.alertStatus !== 'ignored'"
+                      v-if="record.status !== 'ignored'"
                       type="default"
                       size="small"
                       :loading="record.ignoring"
@@ -124,10 +150,7 @@ import { message } from 'ant-design-vue'
 import dayjs from 'dayjs'
 import {
   PictureOutlined,
-  ReloadOutlined,
-  PoweroffOutlined,
-  DownOutlined,
-  DeleteOutlined
+  ReloadOutlined
 } from '@ant-design/icons-vue'
 import type { Client } from '@/types/client'
 import type { SecurityAlert, AlertStatus, RiskLevel } from '@/types/security'
@@ -143,9 +166,6 @@ interface Props {
 
 interface Emits {
   'update:visible': [visible: boolean]
-  'view-screenshot': [client: Client]
-  'refresh-data': [clientId: string]
-  'force-offline': [clientId: string]
   'client-deleted': [clientId: string]
   'client-updated': [clientId: string]
   'show-screenshot': [url: string, title: string]
@@ -155,7 +175,6 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 // 响应式状态
-const isRefreshing = ref(false)
 const isDeleting = ref(false)
 const isSaving = ref(false)
 const screenWidth = ref(window.innerWidth)
@@ -179,15 +198,18 @@ const violationsPagination = ref({
   }
 })
 
+// 图片刷新时间戳，用于强制刷新截图
+const imageRefreshTimestamp = ref(Date.now())
+
 // 表格列定义
 const violationColumns = [
   {
     title: '违规时间',
-    dataIndex: 'screenshotTime',
-    key: 'screenshotTime',
+    dataIndex: 'createdAt',
+    key: 'createdAt',
     width: 180,
     sorter: (a: SecurityAlert, b: SecurityAlert) =>
-      new Date(a.screenshotTime).getTime() - new Date(b.screenshotTime).getTime()
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   },
   {
     title: '区块链地址',
@@ -196,10 +218,22 @@ const violationColumns = [
     ellipsis: true
   },
   {
+    title: '地址类型',
+    dataIndex: 'addressType',
+    key: 'addressType'
+  },
+
+  {
+    title: '状态',
+    dataIndex: 'status',
+    key: 'status',
+    width: 88,
+    align: 'center'
+  },
+  {
     title: '操作',
     key: 'actions',
-    width: 200,
-    fixed: 'right'
+    width: 180
   }
 ]
 
@@ -219,30 +253,7 @@ const handleClose = () => {
   emit('update:visible', false)
 }
 
-const handleViewScreenshot = () => {
-  if (props.client) {
-    emit('view-screenshot', props.client)
-  }
-}
 
-const handleRefreshData = async () => {
-  if (props.client) {
-    isRefreshing.value = true
-    try {
-      emit('refresh-data', props.client.id)
-    } finally {
-      setTimeout(() => {
-        isRefreshing.value = false
-      }, 1000)
-    }
-  }
-}
-
-const handleForceOffline = () => {
-  if (props.client) {
-    emit('force-offline', props.client.id)
-  }
-}
 
 const handleDeleteClient = async () => {
   if (!props.client) return
@@ -291,8 +302,19 @@ const handleResize = () => {
 // 加载客户端分组
 const loadClientGroups = async () => {
   try {
+    // 优先使用客户端详情API返回的分组数据
+    if (props.client) {
+      const response = await clientsApi.getClientDetail(props.client.id)
+      // 后端API已修复，直接访问 response.data.availableGroups
+      if (response?.data?.availableGroups) {
+        clientGroups.value = response.data.availableGroups
+        return
+      }
+    }
+
+    // 如果没有客户端详情或分组数据，则单独获取分组列表
     const response = await clientsApi.getGroups()
-    clientGroups.value = response || []
+    clientGroups.value = Array.isArray(response?.data) ? response.data : []
   } catch (error) {
     console.error('加载客户端分组失败:', error)
   }
@@ -309,15 +331,11 @@ onUnmounted(() => {
 })
 
 // 计算属性
-const modalTitle = computed(() => {
-  return props.client ? `${props.client.computerName} - 详细信息` : '客户端详情'
-})
-
 const modalWidth = computed(() => {
-  return screenWidth.value < 768 ? '90%' : '600px'
+  if (screenWidth.value < 768) return '95%'
+  if (screenWidth.value < 1200) return '840px'
+  return '960px'
 })
-
-const isMobile = computed(() => screenWidth.value < 768)
 
 const statusBadge = computed(() => {
   const statusMap = {
@@ -337,9 +355,12 @@ const lastSeenText = computed(() => {
   return dayjs(lastTime).format('YYYY-MM-DD HH:mm:ss')
 })
 
-const hasScreenshot = computed(() => {
-  return !!props.client?.latestScreenshotUrl
-})
+
+
+// 刷新截图
+const refreshScreenshot = () => {
+  imageRefreshTimestamp.value = Date.now()
+}
 
 // 违规事件相关方法
 const loadViolations = async () => {
@@ -353,9 +374,10 @@ const loadViolations = async () => {
         pageSize: violationsPagination.value.pageSize
       })
 
-      // 响应拦截器返回了完整的后端响应，需要访问data字段
-      violations.value = response.data?.alerts || []
-      violationsPagination.value.total = response.data?.total || 0
+      // 后端响应结构: { code: 200, data: { success: true, data: { alerts: [...], total: 8 } } }
+      const alertsData = response.data?.data || response.data
+      violations.value = alertsData?.alerts || []
+      violationsPagination.value.total = alertsData?.total || 0
   } catch (error) {
     console.error('加载违规事件失败:', error)
     message.error('加载违规事件失败')
@@ -412,25 +434,7 @@ const handleIgnoreAllViolations = async () => {
   }
 }
 
-const getRiskLevelColor = (level: RiskLevel): string => {
-  const colorMap = {
-    low: 'green',
-    medium: 'orange',
-    high: 'red',
-    critical: 'red'
-  }
-  return colorMap[level] || 'default'
-}
 
-const getRiskLevelText = (level: RiskLevel): string => {
-  const textMap = {
-    low: '低风险',
-    medium: '中风险',
-    high: '高风险',
-    critical: '严重'
-  }
-  return textMap[level] || '未知'
-}
 
 const getStatusColor = (status: AlertStatus): string => {
   const colorMap = {
@@ -458,25 +462,41 @@ const formatTime = (time: string): string => {
   return dayjs(time).format('YYYY-MM-DD HH:mm:ss')
 }
 
-// 监听客户端变化，加载违规事件
-watch(() => props.client, (newClient) => {
-  if (newClient && activeTab.value === 'violations') {
-    loadViolations()
+// 统一的数据加载逻辑
+const shouldLoadViolations = () => {
+  return props.visible && props.client && activeTab.value === 'violations'
+}
+
+// 监听客户端变化
+watch(() => props.client, (newClient, oldClient) => {
+  if (newClient && newClient.id !== oldClient?.id) {
+    // 如果弹窗可见，立即刷新新客户端的截图
+    if (props.visible) {
+      refreshScreenshot()
+    }
+    // 加载违规数据
+    if (shouldLoadViolations()) {
+      loadViolations()
+    }
   }
 })
 
-// 监听标签页切换，当切换到违规事件标签时加载数据
+// 监听标签页切换
 watch(() => activeTab.value, (newTab) => {
   if (newTab === 'violations' && props.client) {
     loadViolations()
   }
 })
 
-// 监听弹窗可见性，当弹窗打开时预加载违规事件数据
+// 监听弹窗可见性
 watch(() => props.visible, (visible) => {
   if (visible && props.client) {
-    // 预加载违规事件数据，这样用户切换到违规事件标签时就能立即看到数据
-    loadViolations()
+    loadClientGroups()
+    refreshScreenshot() // 刷新截图显示最新内容
+    // 只有在违规事件标签页时才加载违规数据
+    if (activeTab.value === 'violations') {
+      loadViolations()
+    }
   }
 })
 
@@ -487,6 +507,60 @@ watch(() => props.visible, (visible) => {
 
 <style scoped lang="scss">
 .client-detail-modal {
+  :global(.ant-modal-content){
+    border-radius: 10px;
+  }
+  :global(.ant-modal-header){
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  :global(.ant-modal-body){
+    padding-top: 12px;
+  }
+
+  .cdm-header {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .cdm-header-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .cdm-title { font-size: 16px; font-weight: 600; }
+  .cdm-status { transform: translateY(-1px); }
+  .cdm-header-meta {
+    display: flex; align-items: center; gap: 8px;
+    color: #8c8c8c; font-size: 12px;
+  }
+  .cdm-dot { width:4px; height:4px; border-radius:50%; background:#d9d9d9; display:inline-block; }
+
+  .violations-content {
+    padding: 16px 0;
+  }
+  .violations-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f0f0f0;
+
+    h4 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+  }
+  .violations-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .cdm-table{ width: 100%; }
+  .cdm-table :global(.ant-table){ font-size: 12px; table-layout: fixed; }
+  .cdm-table :global(.ant-table-container){ overflow-x: visible; }
+
   .modal-content {
     .client-info {
       margin-bottom: 16px;
@@ -549,30 +623,7 @@ watch(() => props.visible, (visible) => {
   }
 }
 
-/* 违规事件样式 */
-.violations-content {
-  padding: 16px 0;
-}
 
-.violations-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.violations-header h4 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.violations-actions {
-  display: flex;
-  gap: 8px;
-}
 
 .address-text {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
